@@ -19,6 +19,8 @@ function withDefaults(config: HomeDeckConfig): HomeDeckConfig {
     bins: config.bins ?? [],
     ha_icons: config.ha_icons ?? false,
     ha_room_icons: config.ha_room_icons ?? false,
+    room_scenes: config.room_scenes ?? false,
+    room_sensors: config.room_sensors ?? false,
     free_devices: config.free_devices ?? [],
     free_rooms: config.free_rooms ?? [],
     view_mode: config.view_mode ?? "grid",

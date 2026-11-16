@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { BLANK_IMAGE, useCamerasPaused } from "../cameraPause";
-import { cameraIsWebRtcOnly, cameraSnapshot, cameraStream, loadCameraPlayer } from "../devices";
+import { cameraUsesPlayer, cameraSnapshot, cameraStream, loadCameraPlayer } from "../devices";
 import type { TranslationKey } from "../i18n";
 import type { DiscoveredEntity } from "../types/discovery";
 import type { HomeAssistant } from "../types/home-assistant";
@@ -69,11 +69,11 @@ export function CameraCard({ entity, hass, onOpen, t, whole }: { entity: Discove
   useEffect(() => {
     if (!live) return;
     let cancelled = false;
-    void cameraIsWebRtcOnly(hass, entity.entity_id)
+    void cameraUsesPlayer(hass, entity)
       .then((only) => (only ? loadCameraPlayer() : false))
       .then((player) => { if (!cancelled) setUsePlayer(player); });
     return () => { cancelled = true; };
-  }, [live, entity.entity_id]);
+  }, [live, entity.entity_id, entity.camera_mjpeg]);
 
   const stream = cameraStream(state);
   const mjpeg = playing && usePlayer === false && stream && !streamFailed ? stream : null;

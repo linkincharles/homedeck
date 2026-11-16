@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useScrollFades } from "../scrollFades";
+import { useOverlayFit } from "../overlayFit";
 import type { CSSProperties, ReactNode } from "react";
 import type { HomeDeckCardStyle, HomeDeckConfig } from "../types/config";
 import type { DiscoveryResponse } from "../types/discovery";
 import type { HomeAssistant } from "../types/home-assistant";
-import { SensorSinceContext, SparklinesContext } from "../history";
+import { RoomPowerContext, SensorSinceContext, SparklinesContext } from "../history";
 import { PlayersContext } from "../spotify";
 import { CameraWholeContext, LiveCamerasContext } from "./CameraCard";
 import { OccasionContext, SeasonLayer } from "./SeasonLayer";
 import { SeasonDecor } from "./SeasonDecor";
+import { FONT_SCALE, fontSize, keyBar, motionPrefs, UI_SCALE, uiSize, useDevicePref } from "../devicePrefs";
+import { usePlan } from "../plan";
 import { KidsScene } from "./KidsScene";
 import { HassContext } from "./HDIcon";
 import type { Occasion } from "../seasons";
@@ -113,12 +117,12 @@ function mixColor(from: string, to: string, amount: number): string {
 
 /** The card glass: 50 is the classic frosted look, lower blends toward a solid card in the background's
  * tone, higher lets more of the background through. */
-function glassColor(glass: number, tint: number, solid: string): string {
+/** Card fill along the Glass slider: clearer toward "Translucent", and toward "Solid" a denser white (like the
+ * icon chips in Settings, only stronger), never a dark color. */
+function glassColor(glass: number, tint: number): string {
   if (glass >= 50) return `rgba(255,255,255,${(tint - ((glass - 50) / 50) * (tint / 2)).toFixed(3)})`;
   const amount = (50 - glass) / 50;
-  const alpha = tint + (0.94 - tint) * amount;
-  const rgb = hexToRgb(solid).map((value) => Math.round((255 * tint * (1 - amount) + value * 0.94 * amount) / alpha));
-  return `rgba(${rgb.join(",")},${alpha.toFixed(3)})`;
+  return `rgba(255,255,255,${(tint + (tint + 0.2 - tint) * amount).toFixed(3)})`;
 }
 
 /** Kept across mounts: Settings, setup and the panel reopening all see the same size. */
@@ -158,7 +162,6 @@ function useStableViewport(): string | null {
 
 function cardVars(cards: HomeDeckCardStyle, palette: Palette): Record<string, string> {
   const glass = Math.max(0, Math.min(100, cards.glass));
-  const solid = mixColor(palette[1], "#26252b", 0.45);
   const corners = Math.max(0, Math.min(150, cards.corners)) / 100;
   // Pills and circles are already as round as they get; below the default they square off with the rest.
   const round: Record<string, string> = corners >= 1 ? {} : { "--hd-pill": `calc(var(--u)*${(2.6 * corners).toFixed(2)})`, "--hd-round": `${(50 * corners).toFixed(1)}%` };
@@ -166,8 +169,8 @@ function cardVars(cards: HomeDeckCardStyle, palette: Palette): Record<string, st
     "--hd-r": corners.toFixed(2),
     ...round,
     "--hd-blur": `${(glass < 50 ? (22 * glass) / 50 : 22 + (glass - 50) * 0.36).toFixed(1)}px`,
-    "--glass": glassColor(glass, 0.14, solid),
-    "--glass-strong": glassColor(glass, 0.18, solid),
+    "--glass": glassColor(glass, 0.14),
+    "--glass-strong": glassColor(glass, 0.18),
     ...(cards.frame ? {} : { "--hd-frame": "transparent" }),
   };
 }
@@ -204,6 +207,16 @@ function activityLevel(config: HomeDeckConfig, data: DiscoveryResponse, hass: Ho
 
 export function DynamicShell({ children, config, data, hass, mode = "grid", season }: { children: ReactNode; config: HomeDeckConfig; data: DiscoveryResponse; hass: HomeAssistant; mode?: string; season?: { occasion: Occasion | null; fireworks: boolean } }) {
   const viewportUnit = useStableViewport();
+  // The shortcut bar of this device, at the bottom, lifts the dock and the Edit button above it.
+  const bar = useDevicePref(keyBar);
+  // Animations are chosen per device (Settings → This device); the cards' own animations stay Pro.
+  const motion = useDevicePref(motionPrefs);
+  const fades = useScrollFades();
+  const overlays = useOverlayFit();
+  const shellRef = useCallback((element: HTMLDivElement | null) => { fades(element); overlays(element); }, [fades, overlays]);
+  const textSize = useDevicePref(fontSize);
+  const interfaceSize = useDevicePref(uiSize);
+  const { pro } = usePlan();
   // The Kids layout draws its own animated scene instead of the regular background.
   const kids = mode === "kids";
   const kidsScene = config.kids_background ?? "sky";
@@ -211,6 +224,8 @@ export function DynamicShell({ children, config, data, hass, mode = "grid", seas
   const highlight = /^#[0-9a-f]{6}$/i.test(config.highlight_color ?? "") ? config.highlight_color : "#ffc94d";
   const palette = FIXED[config.background.preset] ?? paletteAt(ADAPTIVE[config.background.preset] ?? ADAPTIVE.adaptive_ember, level);
   const style = {
+    "--hd-font": FONT_SCALE[textSize],
+    "--hd-ui": UI_SCALE[interfaceSize],
     "--ambient-1": palette[0],
     "--ambient-2": palette[1],
     "--ambient-3": palette[2],
@@ -225,12 +240,12 @@ export function DynamicShell({ children, config, data, hass, mode = "grid", seas
     ...(viewportUnit ? { "--hd-vh": viewportUnit } : {}),
   } as CSSProperties;
   return (
-    <div className={`app-shell theme-${config.theme} view-${mode} ${kids ? `kids-scene--${kidsScene}` : ""} ${config.background.animated ? "ambient-animated" : "ambient-still"} ${config.cards?.animations ? "hd-anim" : ""}`} data-activity={level.toFixed(2)} style={style}>
+    <div className={`app-shell theme-${config.theme} view-${mode} ${bar.on ? `has-keybar${bar.hideDock ? " keybar-nodock" : ""}` : ""} ${kids ? `kids-scene--${kidsScene}` : ""} ${motion.background ? "ambient-animated" : "ambient-still"} ${motion.cards && pro ? "hd-anim" : ""} ${motion.ui ? "hd-motion" : ""} ${config.cards?.shine && pro ? "hd-shine" : ""}`} data-activity={level.toFixed(2)} ref={shellRef} style={style}>
       <div aria-hidden="true" className="ambient-background"><i /><i /><i /></div>
       {kids && <KidsScene scene={kidsScene} />}
       {season && (season.occasion?.effect || season.fireworks) && <SeasonLayer effect={season.occasion?.effect ?? null} fireworks={season.fireworks} intensity={season.occasion?.phase === "lead" ? 0.45 : 1} />}
       {season?.occasion && (season.occasion.phase === "day" || season.occasion.id === "christmas") && <SeasonDecor id={season.occasion.id} />}
-      <HassContext.Provider value={hass}><OccasionContext.Provider value={season?.occasion ?? null}><SparklinesContext.Provider value={Boolean(config.cards?.sparklines)}><SensorSinceContext.Provider value={Boolean(config.cards?.sensor_since)}><LiveCamerasContext.Provider value={config.live_cameras !== false}><PlayersContext.Provider value={config.cards?.players !== false}><CameraWholeContext.Provider value={Boolean(config.camera_whole)}>{children}</CameraWholeContext.Provider></PlayersContext.Provider></LiveCamerasContext.Provider></SensorSinceContext.Provider></SparklinesContext.Provider></OccasionContext.Provider></HassContext.Provider>
+      <HassContext.Provider value={hass}><OccasionContext.Provider value={season?.occasion ?? null}><SparklinesContext.Provider value={Boolean(config.cards?.sparklines)}><SensorSinceContext.Provider value={Boolean(config.cards?.sensor_since)}><LiveCamerasContext.Provider value={config.live_cameras !== false}><PlayersContext.Provider value={config.cards?.players !== false}><CameraWholeContext.Provider value={Boolean(config.camera_whole)}><RoomPowerContext.Provider value={config.cards?.room_power !== false}>{children}</RoomPowerContext.Provider></CameraWholeContext.Provider></PlayersContext.Provider></LiveCamerasContext.Provider></SensorSinceContext.Provider></SparklinesContext.Provider></OccasionContext.Provider></HassContext.Provider>
     </div>
   );
 }

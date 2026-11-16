@@ -1,4 +1,5 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { domainLabel, type TranslationKey } from "../i18n";
 import type { DiscoveredEntity, Room } from "../types/discovery";
 import { domainIcon, HassContext, HDIcon } from "./HDIcon";
@@ -72,7 +73,12 @@ export function EntityPicker({ domains, filter, language, onClose, onToggle, roo
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
 
-  return <div aria-label={title ?? t("addDevices")} aria-modal="true" className="hd-sheet-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} role="dialog">
+  // Always over the whole panel: drawn inside a glass settings block it would sit under the blocks after it.
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [shell, setShell] = useState<Element | null>(null);
+  useLayoutEffect(() => { setShell(anchor.current?.closest(".app-shell") ?? null); }, []);
+
+  const sheet = <div aria-label={title ?? t("addDevices")} aria-modal="true" className="hd-sheet-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} role="dialog">
     <section className="hd-sheet hd-picker">
       <header className="hd-sheet__header">
         <div><span className="eyebrow">{chosen > 0 ? t("pickerSelectedCount").replace("{count}", String(chosen)) : t("addItem")}</span><h2>{title ?? t("addDevices")}</h2></div>
@@ -103,4 +109,5 @@ export function EntityPicker({ domains, filter, language, onClose, onToggle, roo
       </div>
     </section>
   </div>;
+  return <><span hidden ref={anchor} />{shell ? createPortal(sheet, shell) : sheet}</>;
 }

@@ -9,13 +9,19 @@ import { conditionMet, useCustomize, useMinute } from "../personalize";
 import { EntityEditSheet } from "./EntityModal";
 import { RoomCardSheet } from "./CardLinks";
 import type { HomeAssistant } from "../types/home-assistant";
-import { isSectionKey, isSensorKey, SECTION_PREFIX, showItem, withSections } from "../layout";
+import { foldedSections, setSectionFolded, useDevicePref } from "../devicePrefs";
+import { FOLDER_PREFIX, isFolderKey, isListKey, isSectionKey, isSensorKey, LIST_PREFIX, SECTION_PREFIX, showItem, withSections } from "../layout";
+import { FolderCard, FolderSheet } from "./Folder";
+import type { HomeDeckEntityList, HomeDeckFolder } from "../types/config";
+import { EntityListCard, EntityListSheet } from "./EntityList";
 
 /** True inside a double-size tile, so cards can offer more controls there. */
 const WideTile = createContext(false);
 export const useWideTile = () => useContext(WideTile);
-/** Sensors can also be small: half the height of a normal card. */
-const canBeSmall = isSensorKey;
+/** Cards that can also be small (half the height of a normal card, one line): sensors, and devices
+ * whose card works as a one-line switch. Cameras, players, climate and the like need their room. */
+const NOT_SMALL = /^entity:(camera|media_player|climate|vacuum|plant|weather|water_heater|humidifier)\./;
+const canBeSmall = (key: string) => isSensorKey(key) || (key.startsWith("entity:") && !NOT_SMALL.test(key));
 type CardSize = "small" | "normal" | "double" | "large" | "x6" | "x8" | "c4" | "c9" | "c16";
 const SIZE_LABELS: Partial<Record<CardSize, TranslationKey>> = { small: "sizeSmall", normal: "sizeNormal", double: "sizeDouble", large: "sizeLarge" };
 const SIZE_MARKS: Record<CardSize, string> = { small: "½×", normal: "1×", double: "2×", large: "4×", x6: "6×", x8: "8×", c4: "4×", c9: "9×", c16: "16×" };
@@ -54,8 +60,10 @@ interface EditableGridProps {
   trayDevices?: boolean;
   /** Offers the double-size badge (cards); rows and chips keep one size. */
   sizable?: boolean;
-  /** Allows separators with a title between the items (device and card screens). */
+  /** Allows separators with a title between the items (device and card screens), and list cards. */
   sections?: boolean;
+  /** Allows folder cards too (with sections); off inside a folder. */
+  folders?: boolean;
   t: (key: TranslationKey) => string;
 }
 
@@ -84,7 +92,7 @@ function stretchedRow(root: HTMLElement | null): string | null {
   return /^\d+(\.\d+)?px$/.test(first) ? first : null;
 }
 
-export function EditableGrid({ addLabel, roomScreen, cameraGrid, className, editing, hass, hiddenItems = [], items: allCards, layout, onAdd, onLayout, onRemove, sections = false, sizable = true, t, trayDevices = false }: EditableGridProps) {
+export function EditableGrid({ addLabel, roomScreen, cameraGrid, className, editing, folders: allowFolders = true, hass, hiddenItems = [], items: allCards, layout, onAdd, onLayout, onRemove, sections = false, sizable = true, t, trayDevices = false }: EditableGridProps) {
   // A hidden device simply leaves the screen and goes back to the "add" list; rooms and widgets stay in the tray.
   const tray = hiddenItems.filter((item) => trayDevices || !item.key.startsWith("entity:"));
   const rootRef = useRef<HTMLDivElement>(null);
@@ -123,20 +131,43 @@ export function EditableGrid({ addLabel, roomScreen, cameraGrid, className, edit
   // The device opened with a tap in Edit mode.
   const [editingEntity, setEditingEntity] = useState<string | null>(null);
   const [editingRoom, setEditingRoom] = useState<string | null>(null);
-  useEffect(() => { if (!editing) { setSizing(null); setEditingEntity(null); setEditingRoom(null); } }, [editing]);
+  const [editingList, setEditingList] = useState<string | null>(null);
+  useEffect(() => { if (!editing) { setSizing(null); setEditingEntity(null); setEditingRoom(null); setEditingList(null); } }, [editing]);
   const titles = sections ? layout.sections ?? {} : {};
+  const folded = useDevicePref(foldedSections);
+  // List cards (Pro) live where separators do; without Pro they stay saved but are not shown.
+  const lists: Record<string, HomeDeckEntityList> = sections && hass && plan.pro ? layout.lists ?? {} : {};
+  const setList = (key: string, list: HomeDeckEntityList) => onLayout({ ...layout, lists: { ...(layout.lists ?? {}), [key]: list } });
+  // Folder cards (Pro) too, but never inside a folder.
+  const folders: Record<string, HomeDeckFolder> = sections && allowFolders && hass && plan.pro ? layout.folders ?? {} : {};
+  const setFolder = (key: string, folder: HomeDeckFolder) => onLayout({ ...layout, folders: { ...(layout.folders ?? {}), [key]: folder } });
+  const [openFolder, setOpenFolder] = useState<string | null>(null);
   // A card with rules only leaves the screen outside Edit mode, where it can still be changed.
   const checksRules = !editing && Boolean(hass) && plan.pro;
   const rulesOf = (item: GridItem) => item.key.startsWith("entity:") ? customize?.lookup(item.key.slice("entity:".length))?.visible_when : undefined;
   const now = useMinute(checksRules && allCards.some((item) => { const rule = rulesOf(item); return Boolean(rule?.from || rule?.days?.length); }));
-  const cards = checksRules ? allCards.filter((item) => conditionMet(rulesOf(item), hass!.states, new Date(now))) : allCards;
-  const keys = withSections(cards.map((item) => item.key), sections ? layout : { ...layout, sections: {} });
+  // Entities shown in a list that hides their own cards leave the screen outside Edit mode.
+  const listed = editing ? new Set<string>() : new Set(Object.values(lists).filter((list) => list.hide_cards).flatMap((list) => list.entities.map((id) => `entity:${id}`)));
+  const ruled = checksRules ? allCards.filter((item) => conditionMet(rulesOf(item), hass!.states, new Date(now))) : allCards;
+  const cards = listed.size > 0 ? ruled.filter((item) => !listed.has(item.key)) : ruled;
+  const keys = withSections(cards.map((item) => item.key), { ...layout, sections: titles, lists, folders });
   const setTitle = (key: string, title: string) => onLayout({ ...layout, sections: { ...titles, [key]: title.trim().slice(0, 60) || t("newSection") } });
   const items: GridItem[] = [...cards, ...Object.keys(titles).map((key): GridItem => ({
     key,
     label: titles[key],
     removal: "remove",
-    node: editing ? <SectionTitle onTitle={(title) => setTitle(key, title)} t={t} title={titles[key]} /> : <h2 className="hd-section"><span>{titles[key]}</span></h2>,
+    // Outside Edit mode a separator folds and unfolds what follows it (remembered on this device).
+    node: editing ? <SectionTitle onTitle={(title) => setTitle(key, title)} t={t} title={titles[key]} /> : <h2 className={`hd-section${folded.includes(key) ? " hd-section--folded" : ""}`}><button aria-expanded={!folded.includes(key)} className="hd-section__fold" onClick={() => setSectionFolded(key, !folded.includes(key))} type="button"><span>{titles[key]}</span><HDIcon name="chevron" size={15} /></button></h2>,
+  })), ...Object.keys(lists).map((key): GridItem => ({
+    key,
+    label: lists[key].title,
+    removal: "remove",
+    node: <EntityListCard editing={editing} hass={hass!} list={lists[key]} t={t} />,
+  })), ...Object.keys(folders).map((key): GridItem => ({
+    key,
+    label: folders[key].title,
+    removal: "remove",
+    node: <FolderCard folder={folders[key]} hass={hass!} onOpen={() => { if (!editing) setOpenFolder(key); }} t={t} />,
   }))];
   const shown = order ?? keys;
   const byKey = new Map(items.map((item) => [item.key, item]));
@@ -254,6 +285,20 @@ export function EditableGrid({ addLabel, roomScreen, cameraGrid, className, edit
     onLayout({ ...layout, sections: { ...titles, [key]: t("newSection") }, order: [...keys, key, ...layout.hidden.filter((item) => !keys.includes(item))] });
   };
 
+  const addList = () => {
+    if (!plan.pro) { plan.upsell("feature"); return; }
+    const key = `${LIST_PREFIX}${Date.now().toString(36)}`;
+    onLayout({ ...layout, lists: { ...(layout.lists ?? {}), [key]: { title: t("newList"), entities: [] } }, wide: [...layout.wide, key], order: [...keys, key, ...layout.hidden.filter((item) => !keys.includes(item))] });
+    setEditingList(key);
+  };
+
+  const addFolder = () => {
+    if (!plan.pro) { plan.upsell("feature"); return; }
+    const key = `${FOLDER_PREFIX}${Date.now().toString(36)}`;
+    onLayout({ ...layout, folders: { ...(layout.folders ?? {}), [key]: { title: t("newFolder"), entities: [] } }, order: [...keys, key, ...layout.hidden.filter((item) => !keys.includes(item))] });
+    setOpenFolder(key);
+  };
+
   const end = (event: ReactPointerEvent<HTMLDivElement>) => {
     const current = drag.current;
     if (!current || current.pointerId !== event.pointerId) return;
@@ -267,11 +312,21 @@ export function EditableGrid({ addLabel, roomScreen, cameraGrid, className, edit
     if (tapped && hass && tappedKey.startsWith("entity:")) setEditingEntity(tappedKey.slice("entity:".length));
     // Room cards: who can see them and, at double or large size, their extra devices.
     if (tapped && hass && sizable && tappedKey.startsWith("room:")) setEditingRoom(tappedKey.slice("room:".length));
+    if (tapped && isListKey(tappedKey)) setEditingList(tappedKey);
+    if (tapped && isFolderKey(tappedKey)) setOpenFolder(tappedKey);
     if (moved && finalOrder) onLayout({ ...layout, order: [...finalOrder, ...layout.hidden.filter((key) => !finalOrder.includes(key))] });
   };
 
   const hide = (item: GridItem) => {
-    if (isSectionKey(item.key)) {
+    if (isFolderKey(item.key)) {
+      const { [item.key]: _removed, ...rest } = layout.folders ?? {};
+      const without = (list?: string[]) => (list ?? []).filter((key) => key !== item.key);
+      onLayout({ ...layout, folders: rest, order: without(layout.order), wide: without(layout.wide), tall: without(layout.tall), small: without(layout.small) });
+    } else if (isListKey(item.key)) {
+      const { [item.key]: _removed, ...rest } = layout.lists ?? {};
+      const without = (list?: string[]) => (list ?? []).filter((key) => key !== item.key);
+      onLayout({ ...layout, lists: rest, order: without(layout.order), wide: without(layout.wide), tall: without(layout.tall) });
+    } else if (isSectionKey(item.key)) {
       const { [item.key]: _removed, ...rest } = titles;
       onLayout({ ...layout, sections: rest, order: layout.order.filter((key) => key !== item.key) });
     } else if (item.removal === "remove") onRemove?.(item.key);
@@ -332,6 +387,8 @@ export function EditableGrid({ addLabel, roomScreen, cameraGrid, className, edit
   const addTiles = <>
     {editing && onAdd && <button className="hd-add-tile" onClick={onAdd} type="button"><span><HDIcon name="plus" size={22} /></span>{addLabel ?? t("addItem")}</button>}
     {editing && sections && <button className="hd-add-tile hd-add-tile--section" onClick={addSection} type="button"><span><HDIcon name="minus" size={22} /></span>{t("addSection")}</button>}
+    {editing && sections && allowFolders && hass && <button className="hd-add-tile hd-add-tile--list" onClick={addFolder} type="button"><span><HDIcon name="grid" size={22} /></span>{t("addFolder")}{!plan.pro && <HDIcon name="lock" size={12} />}</button>}
+    {editing && sections && hass && <button className="hd-add-tile hd-add-tile--list" onClick={addList} type="button"><span><HDIcon name="list" size={22} /></span>{t("addList")}{!plan.pro && <HDIcon name="lock" size={12} />}</button>}
   </>;
   const gridClass = `${className} hd-grid ${editing ? "hd-grid--editing" : ""}`;
   const gridStyle = editing && rowLock.current ? { gridAutoRows: rowLock.current } : undefined;
@@ -354,7 +411,7 @@ export function EditableGrid({ addLabel, roomScreen, cameraGrid, className, edit
       : <div className={`hd-sections ${editing ? "hd-sections--editing" : ""}`} {...pointer}>
         {blocks.map((block, index) => <Fragment key={block.section ?? "start"}>
           {block.section && renderItem(block.section, 0)}
-          {(block.keys.length > 0 || index === blocks.length - 1) && <div className={gridFor(block.keys)} style={gridStyle}>
+          {(block.keys.length > 0 || index === blocks.length - 1) && !(block.section && !editing && folded.includes(block.section)) && <div className={gridFor(block.keys)} style={gridStyle}>
             {block.keys.map(renderItem)}
             {index === blocks.length - 1 && addTiles}
           </div>}
@@ -362,6 +419,8 @@ export function EditableGrid({ addLabel, roomScreen, cameraGrid, className, edit
       </div>}
     {editingEntity && hass && rootRef.current?.closest(".app-shell") && createPortal(<EntityEditSheet entityId={editingEntity} hass={hass} roomScreen={roomScreen} linkable={sizable && layout.wide.includes(`entity:${editingEntity}`)} onClose={() => setEditingEntity(null)} t={t} />, rootRef.current.closest(".app-shell")!)}
     {editingRoom && rootRef.current?.closest(".app-shell") && hass && createPortal(<RoomCardSheet hass={hass} linkable={layout.wide.includes(`room:${editingRoom}`)} onClose={() => setEditingRoom(null)} roomId={editingRoom} t={t} />, rootRef.current.closest(".app-shell")!)}
+    {editingList && lists[editingList] && rootRef.current?.closest(".app-shell") && createPortal(<EntityListSheet list={lists[editingList]} onChange={(list) => setList(editingList, list)} onClose={() => setEditingList(null)} t={t} />, rootRef.current.closest(".app-shell")!)}
+    {openFolder && folders[openFolder] && hass && rootRef.current?.closest(".app-shell") && createPortal(<FolderSheet editing={editing} folder={folders[openFolder]} hass={hass} onChange={(folder) => setFolder(openFolder, folder)} onClose={() => setOpenFolder(null)} t={t} />, rootRef.current.closest(".app-shell")!)}
     {editing && tray.length > 0 && <section className="hd-hidden-tray" aria-label={t("hiddenItems")}>
       <span className="eyebrow">{t("hiddenItems")}</span>
       <div>{tray.map((item) => <button key={item.key} onClick={() => onLayout(showItem(layout, item.key, keys))} type="button"><HDIcon name="plus" size={14} />{item.label}</button>)}</div>

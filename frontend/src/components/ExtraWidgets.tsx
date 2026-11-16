@@ -1,3 +1,4 @@
+import { hourOptions } from "../clock";
 import { useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { weatherConditionLabel, type TranslationKey } from "../i18n";
@@ -22,6 +23,8 @@ export function extraWidgets(config: HomeDeckConfig, hass: HomeAssistant): Widge
   if (config.widgets?.sun && hass.states["sun.sun"]) keys.push("widget:sun");
   if (config.widgets?.energy && Object.values(config.energy ?? {}).some((id) => id && hass.states[id])) keys.push("widget:energy");
   if (config.widgets?.bins && (config.bins ?? []).some((bin) => bin.entity && hass.states[bin.entity])) keys.push("widget:bins");
+  if (config.widgets?.plan && config.navigation?.plan) keys.push("widget:plan");
+  if (config.widgets?.recent && (config.recent_media ?? []).some((id) => hass.states[id])) keys.push("widget:recent");
   return keys;
 }
 
@@ -35,7 +38,7 @@ function asEntity(state: HassEntity): DiscoveredEntity {
 
 const time = (value: unknown, language?: string) => {
   const date = typeof value === "string" ? new Date(value) : null;
-  return date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(date) : "—";
+  return date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" }).format(date) : "—";
 };
 
 export function WeatherWidget({ config, hass, language, t }: { config: HomeDeckConfig; hass: HomeAssistant; language?: string; t: T }) {
@@ -48,7 +51,7 @@ export function WeatherWidget({ config, hass, language, t }: { config: HomeDeckC
   const low = numeric(today?.templow);
   const condition = now?.condition;
   const shell = ref.current?.closest(".app-shell") ?? null;
-  const hour = new Intl.DateTimeFormat(language, { hour: "2-digit" });
+  const hour = new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit" });
   return <>
     <button className={`widget-card widget-card--interactive widget-card--weather ${wide ? "widget-card--wide" : ""}`} onClick={() => setOpen(true)} ref={ref} type="button">
       <span className="widget-card__icon"><HDIcon name={conditionIcon(condition)} size={22} /></span>

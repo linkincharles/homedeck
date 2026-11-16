@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { setClockFormat } from "./clock";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { getConfig, saveConfig as persistConfig } from "./api/config";
 import { discoverRooms } from "./api/discovery";
 import { activateLicense, claimCheckout, getLicense, type LicenseStatus } from "./api/license";
 import { HDIcon } from "./components/HDIcon";
+import { KeyBar } from "./components/KeyBar";
+import { FloorPlan, planTitle } from "./components/FloorPlan";
 import { DynamicShell } from "./components/DynamicShell";
 import { pageIcon, NavigationDock, orderTabs, type HomeDeckPage } from "./components/NavigationDock";
 import { ProSheet } from "./components/ProSheet";
@@ -20,7 +23,7 @@ import { VIEW_MODES } from "./components/LayoutPicker";
 import { KIDS_SCENES } from "./components/KidsScene";
 import { keepAwakeWanted, startKeepAwake } from "./keepAwake";
 import { createTranslator } from "./i18n";
-import { migrateLayouts, withLayout } from "./layout";
+import { entityKey, getLayout, migrateLayouts, roomScreen, setHidden, withLayout } from "./layout";
 import { effectiveConfig, freeDevices, isControllable, overFreeLimits, panelRoomIds, PlanContext, restrictRooms, type PlanState, type UpsellReason } from "./plan";
 import { availableSections } from "./security";
 import { setStateText } from "./devices";
@@ -162,6 +165,8 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
   const devView = useDevicePref(deviceViewMode);
   const devBackground = useDevicePref(deviceBackground);
   const devKids = useDevicePref(deviceKidsScene);
+  // Every clock and time follows the chosen format (or the Home Assistant profile's).
+  setClockFormat(config?.preferences?.clock, hass.locale?.time_format);
   const view = useMemo(() => (config ? effectiveConfig(onThisDevice(config, devView, devBackground, devKids), pro) : null), [config, pro, devView, devBackground, devKids]);
 
   const plan = useMemo<PlanState>(() => ({
@@ -204,6 +209,13 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
       return { ...current, card_link_names: Object.keys(next).length > 0 ? { ...others, [itemKey]: next } : others };
     }),
     roomName: (screen: string, entityId: string) => config?.room_names?.[screen]?.[entityId] ?? "",
+    // A device with no area, moved into a room inside HomeDeck: added to that room and hidden where it was.
+    moveToRoom: (entityId: string, fromRoomId: string, toRoomId: string) => void updateConfig((current) => {
+      const key = entityKey(entityId);
+      const target = getLayout(current, roomScreen(toRoomId));
+      const withTarget = withLayout(current, roomScreen(toRoomId), { ...setHidden(target, key, false), added: [...new Set([...(target.added ?? []), entityId])] });
+      return withLayout(withTarget, roomScreen(fromRoomId), setHidden(getLayout(withTarget, roomScreen(fromRoomId)), key, true));
+    }),
     setRoomName: (screen: string, entityId: string, name: string) => void updateConfig((current) => {
       const { [entityId]: _old, ...names } = current.room_names?.[screen] ?? {};
       const next = name.trim() ? { ...names, [entityId]: name.trim() } : names;
@@ -255,18 +267,22 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
   // screensaver, Edit mode, Settings or the doorbell are up, nor on the cameras, the full-screen player or a
   // full-screen camera, which are meant to be watched.
   const probe = useRef<HTMLSpanElement>(null);
+  // The start screen chosen in Navigation, while that tab is still on; Home otherwise.
+  const startPage = startScreen(view, pro);
+  const opened = useRef(false);
+  useEffect(() => { if (view && !opened.current) { opened.current = true; if (startPage !== "home") setActivePage(startPage); } }, [view, startPage]);
   const cameraPage = activePage === "cameras" || view?.pages.some((page) => page.id === activePage && page.type === "cameras");
   useEffect(() => {
-    if (activePage === "home" || editing || settingsOpen || saverOn || ringing || cameraPage) return;
+    if ((activePage === startPage && !selectedRoomId) || editing || settingsOpen || saverOn || ringing || cameraPage) return;
     const timer = window.setInterval(() => {
       if (Date.now() - lastActivity.current < IDLE_HOME_MS) return;
       const root = probe.current?.getRootNode() as Document | ShadowRoot | undefined;
       if (root?.querySelector(".hd-player, .hd-camera, .hd-camera__full, .hd-doorbell")) return;
       setSelectedRoomId(null);
-      setActivePage("home");
+      setActivePage(startPage);
     }, 5_000);
     return () => window.clearInterval(timer);
-  }, [activePage, editing, settingsOpen, saverOn, ringing, cameraPage]);
+  }, [activePage, startPage, selectedRoomId, editing, settingsOpen, saverOn, ringing, cameraPage]);
 
   // Special dates (Pro): the occasion near or happening now, and New Year's fireworks.
   const season = useOccasion(view, hass, t);
@@ -291,6 +307,12 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
     };
   }, [view, data, allowed, pro]);
 
+  // Cards that open a page (the floor plan card) ask for it with an event, as they don't hold the navigation.
+  useEffect(() => {
+    const go = (event: Event) => { const page = (event as CustomEvent<string>).detail; if (typeof page === "string") { setSelectedRoomId(null); setActivePage(page); } };
+    window.addEventListener("homedeck-navigate", go);
+    return () => window.removeEventListener("homedeck-navigate", go);
+  }, []);
   const navigate = useCallback((page: HomeDeckPage) => {
     if (page === "rooms") {
       setSelectedRoomId((current) => current ?? visibleData?.rooms[0]?.id ?? null);
@@ -354,11 +376,12 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
           onDraft={setDraft}
           onLicense={setLicense}
           onReload={() => void load()}
-          onSave={async (next) => { await saveConfig(next); setSettingsOpen(false); setDraft(null); }}
+          onSave={async (next) => { await saveConfig(next); }}
           rooms={data.rooms}
           t={t}
           version={version}
         />
+        <KeyBar active hass={hass} label={t("keyBar")} />
       </DynamicShell>,
     );
   }
@@ -392,31 +415,49 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
     ...(view.navigation.media && hasMedia ? [{ id: "media", label: t("media"), icon: "media" as const }] : []),
     ...(view.navigation.security && hasSecurity ? [{ id: "security", label: t("security"), icon: "shield" as const }] : []),
     ...(view.navigation.cameras && hasCameras ? [{ id: "cameras", label: t("camerasTitle"), icon: "camera" as const }] : []),
+    ...(view.navigation.plan ? [{ id: "plan", label: planTitle(view, t), icon: "plan" as const }] : []),
     ...view.pages.map((page) => ({ id: page.id, label: page.title, icon: pageIcon(page) as NavLink["icon"] })),
   ], view.navigation.order);
   const openRoom = (roomId: string | null) => { setSelectedRoomId(roomId); setActivePage(roomId ? "rooms" : "home"); };
 
+  // The floor plan (Pro) is its own screen in every layout; the Sidebar layout shows it beside its menu.
+  const planOpen = activePage === "plan" && !selectedRoom && Boolean(view.navigation.plan);
   let screen;
-  if (mode === "sidebar") screen = <SidebarLayout {...screenProps} links={links} onNavigate={navigate} onSelectRoom={openRoom} page={pageRef} roomId={selectedRoom?.id ?? null} />;
+  if (mode === "sidebar") screen = <SidebarLayout {...screenProps} custom={planOpen ? <FloorPlan {...screenProps} embedded onOpenRoom={openRoom} /> : undefined} customId={planOpen ? "plan" : undefined} links={links} onNavigate={navigate} onSelectRoom={openRoom} page={pageRef} roomId={selectedRoom?.id ?? null} />;
+  else if (planOpen) screen = <FloorPlan {...screenProps} onOpenRoom={openRoom} />;
   else if (mode === "list") screen = <ListLayout {...screenProps} onSelectRoom={(roomId) => openRoom(roomId)} page={pageRef} roomId={selectedRoom?.id ?? null} />;
   else if (mode === "focus") screen = <FocusLayout {...screenProps} onRoomChange={(roomId) => { setSelectedRoomId(roomId); setActivePage(roomId ? "rooms" : "home"); }} page={pageRef} roomId={selectedRoom?.id ?? null} />;
   else if (selectedRoom) screen = <RoomScreen {...screenProps} onSelectRoom={setSelectedRoomId} room={selectedRoom} />;
   else if (pageRef) screen = <PageScreen key={pageId(pageRef)} {...screenProps} page={pageRef} />;
   else screen = <HomeScreen {...screenProps} onOpenRoom={(roomId) => { setSelectedRoomId(roomId); setActivePage("rooms"); }} />;
 
-  const active = selectedRoom ? "rooms" : customPage || ["scenes", "media", "security", "cameras"].includes(activePage) ? activePage : "home";
+  const active = selectedRoom ? "rooms" : customPage || ["scenes", "media", "security", "cameras", "plan"].includes(activePage) ? activePage : "home";
 
+  // A new page fades in (transitions on): the key changes with the page, not with the room inside it, which
+  // animates its own content; the Sidebar layout animates its right side itself.
+  const pageKey = mode === "sidebar" ? "sidebar" : selectedRoom ? "rooms" : activePage;
   return withPlan(
     <DynamicShell config={view} data={visibleData} hass={hass} mode={mode} season={season}>
-      {screen}
+      <Fragment key={pageKey}>{screen}</Fragment>
       {mode !== "sidebar" && <NavigationDock active={active} config={view} editing={editing} hasMedia={hasMedia} hasScenes={hasScenes} hasSecurity={hasSecurity} hasCameras={hasCameras} onNavigate={navigate} onOrder={(order) => void updateConfig((current) => ({ ...current, navigation: { ...current.navigation, order } }))} t={t} />}
       {!locked && <button aria-label={editing ? t("doneEditing") : t("editScreen")} aria-pressed={editing} className={editing ? "edit-fab edit-fab--on" : "edit-fab"} onClick={() => setEditing((current) => !current)} type="button">
         <HDIcon name={editing ? "check" : "pencil"} size={20} />
       </button>}
+      <KeyBar active hass={hass} label={t("keyBar")} />
       <span hidden ref={probe} />
       {lockNote && <div className="hd-lock-note" role="status"><HDIcon name="lock" size={16} />{lockNote === "blocked" ? t("childLockBlocked") : childOn ? t("childLockHoldOff") : t("childLockHoldOn")}</div>}
       {saverOn && <Screensaver config={view} hass={hass} language={language} onDismiss={dismissSaver} rooms={data?.rooms} t={t} />}
       {ringing && <DoorbellPopup camera={view.doorbell.camera} hass={hass} onClose={stopRinging} seconds={view.doorbell.seconds} t={t} />}
     </DynamicShell>,
   );
+}
+
+/** The screen chosen to open on, when it still exists and is on; Home otherwise. */
+function startScreen(view: HomeDeckConfig | null, pro: boolean): HomeDeckPage {
+  const start = view?.navigation.start;
+  if (!view || !start || start === "home") return "home";
+  const nav = view.navigation;
+  const tabs: Record<string, boolean> = { rooms: nav.rooms, scenes: nav.scenes, media: nav.media, security: nav.security, cameras: Boolean(nav.cameras), plan: Boolean(nav.plan) && pro };
+  if (start in tabs) return tabs[start] ? start as HomeDeckPage : "home";
+  return view.pages.some((page) => page.id === start) ? start as HomeDeckPage : "home";
 }

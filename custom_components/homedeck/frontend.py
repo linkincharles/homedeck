@@ -18,6 +18,9 @@ from .const import (
 )
 
 _STATIC_REGISTERED = "static_registered"
+# Floor plan images the user sends from the panel, kept in /config/homedeck/plans and served here.
+PLANS_URL = "/homedeck_plans"
+PLANS_DIR = ("homedeck", "plans")
 # Where Home Assistant keeps its sidebar panels (a HassKey with this name on newer versions).
 _PANELS = "frontend_panels"
 
@@ -48,8 +51,13 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     frontend_dir = Path(__file__).parent / "frontend"
 
     if not domain_data.get(_STATIC_REGISTERED):
+        plans_dir = Path(hass.config.path(*PLANS_DIR))
+        await hass.async_add_executor_job(lambda: plans_dir.mkdir(parents=True, exist_ok=True))
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(PANEL_URL, str(frontend_dir), cache_headers=False)]
+            [
+                StaticPathConfig(PANEL_URL, str(frontend_dir), cache_headers=False),
+                StaticPathConfig(PLANS_URL, str(plans_dir), cache_headers=False),
+            ]
         )
         domain_data[_STATIC_REGISTERED] = True
 

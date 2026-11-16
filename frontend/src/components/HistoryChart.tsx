@@ -1,3 +1,4 @@
+import { hourOptions } from "../clock";
 import { useId, useMemo, useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import type { TranslationKey } from "../i18n";
@@ -50,7 +51,7 @@ export function Sparkline({ compact = false, hours, language, points, unit }: { 
     return { path, area, low: Math.min(...values), high: Math.max(...values), x, y };
   }, [points, hours]);
   const format = (value: number) => `${new Intl.NumberFormat(language, { maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2 }).format(value)}${unit ? ` ${unit}` : ""}`;
-  const when = (time: number) => new Intl.DateTimeFormat(language, hours > 24 ? { weekday: "short", hour: "2-digit", minute: "2-digit" } : { hour: "2-digit", minute: "2-digit" }).format(time);
+  const when = (time: number) => new Intl.DateTimeFormat(language, hours > 24 ? { ...hourOptions(), weekday: "short", hour: "2-digit", minute: "2-digit" } : { ...hourOptions(), hour: "2-digit", minute: "2-digit" }).format(time);
   const pick = (event: PointerEvent<SVGSVGElement>) => {
     const box = svg.current?.getBoundingClientRect();
     if (!box) return;

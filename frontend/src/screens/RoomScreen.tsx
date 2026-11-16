@@ -5,12 +5,15 @@ import { EditableGrid } from "../components/EditableGrid";
 import { EntityCard } from "../components/EntityCard";
 import { EntityModal } from "../components/EntityModal";
 import { EntityPicker } from "../components/EntityPicker";
+import { SceneStrip } from "../components/SceneStrip";
+import { isEnvironmentSensor, SensorStrip } from "../components/SensorStrip";
 import { RoomOptions } from "../components/RoomOptions";
 import { HDIcon, RoomIcon } from "../components/HDIcon";
 import { arrange, compactSensors, entityKey, getLayout, keyId, pickerRooms, roomScreen, showItem } from "../layout";
 import type { DiscoveredEntity, Room } from "../types/discovery";
 import { entityIndex, type ScreenProps } from "./types";
 import { usePlan } from "../plan";
+import { useFloorGroups } from "../components/FloorPlan";
 
 const DOMAIN_ORDER = ["light", "switch", "fan", "cover", "climate", "media_player", "vacuum", "select", "input_select", "script", "button", "input_button", "scene", "lock", "camera", "alarm_control_panel", "binary_sensor", "sensor", "plant"];
 
@@ -25,7 +28,8 @@ export function RoomScreen(props: ScreenProps & { onSelectRoom: (roomId: string)
   const roomName = room.id === "__unassigned__" ? t("unassigned") : room.name;
   const lights = room.entities.filter(isRoomLight);
   const activeLights = lights.filter((entity) => hass.states[entity.entity_id]?.state === "on");
-  const natural = [...room.entities].sort((a, b) => DOMAIN_ORDER.indexOf(a.domain) - DOMAIN_ORDER.indexOf(b.domain) || a.name.localeCompare(b.name));
+  // With scenes at the top of each room, the room's own scenes leave the cards for the strip.
+  const natural = room.entities.filter((entity) => !(config.room_scenes && entity.domain === "scene") && !(config.room_sensors && isEnvironmentSensor(entity, hass))).sort((a, b) => DOMAIN_ORDER.indexOf(a.domain) - DOMAIN_ORDER.indexOf(b.domain) || a.name.localeCompare(b.name));
   const everywhere = entityIndex(allRooms);
   const own = new Set(room.entities.map((entity) => entity.entity_id));
   // Devices brought in from other rooms in edit mode.
@@ -33,6 +37,7 @@ export function RoomScreen(props: ScreenProps & { onSelectRoom: (roomId: string)
   const byId = new Map([...room.entities, ...added.map((id) => everywhere.byId.get(id)!)].map((entity) => [entity.entity_id, inRoom(entity, screen, config.room_names?.[screen])]));
   const { visible, hidden } = arrange([...natural.map((entity) => entityKey(entity.entity_id)), ...added.map(entityKey)], layout, true);
   const setAdded = (ids: string[]) => onLayout(screen, { ...layout, added: ids });
+  const groups = useFloorGroups(hass, data.rooms, Boolean(config.rooms_by_floor), t("floorplanNoFloor"));
 
   const setRoomLights = async (service: "turn_on" | "turn_off") => {
     if (busy || lights.length === 0) return;
@@ -46,14 +51,17 @@ export function RoomScreen(props: ScreenProps & { onSelectRoom: (roomId: string)
       <div className="room-workspace">
         <aside className="room-selector" aria-label={t("roomsNavigation")}>
           <div className="room-selector__list" role="tablist">
-            {data.rooms.map((item) => {
-              const count = item.entities.filter((entity) => isRoomLight(entity) && hass.states[entity.entity_id]?.state === "on").length;
-              return <button aria-selected={item.id === room.id} key={item.id} onClick={() => onSelectRoom(item.id)} role="tab" type="button"><span className="room-selector__icon"><RoomIcon room={item} size={19} /></span><span>{item.id === "__unassigned__" ? t("unassigned") : item.name}</span>{count > 0 && <i>{count}</i>}</button>;
-            })}
+            {groups.map((group) => [
+              group.name != null && <span className="room-selector__floor" key={`floor-${group.id}`}>{group.name}</span>,
+              ...group.rooms.map((item) => {
+                const count = item.entities.filter((entity) => isRoomLight(entity) && hass.states[entity.entity_id]?.state === "on").length;
+                return <button aria-selected={item.id === room.id} key={item.id} onClick={() => onSelectRoom(item.id)} role="tab" type="button"><span className="room-selector__icon"><RoomIcon room={item} size={19} /></span><span>{item.id === "__unassigned__" ? t("unassigned") : item.name}</span>{count > 0 && <i>{count}</i>}</button>;
+              }),
+            ])}
           </div>
         </aside>
 
-        <section className="room-pane">
+        <section className="room-pane" key={room.id}>
           <header className="room-operational-header">
             <div>
               <span className="eyebrow">{activeLights.length === 0 ? t("allOff") : (activeLights.length === 1 ? t("oneRoomLightOn") : t("roomLightsOn").replace("{count}", String(activeLights.length)))}</span>
@@ -63,7 +71,9 @@ export function RoomScreen(props: ScreenProps & { onSelectRoom: (roomId: string)
           </header>
           {editing && <p className="edit-hint">{t("editHint")}</p>}
           {editing && <RoomOptions allRooms={allRooms} compact={compactSensors(layout, visible, (next) => onLayout(screen, next))} hass={hass} room={room} t={t} />}
-          {visible.length === 0 && !editing
+          {config.room_sensors && <SensorStrip props={props} room={room} />}
+          {config.room_scenes && <SceneStrip props={props} room={room} />}
+          {visible.length === 0 && !editing && !(config.room_scenes && room.entities.some((entity) => entity.domain === "scene")) && !(config.room_sensors && room.entities.some((entity) => isEnvironmentSensor(entity, hass)))
             ? <section className="empty-state"><p>{t("noVisibleEntities")}</p></section>
             : <EditableGrid
                 hass={hass}

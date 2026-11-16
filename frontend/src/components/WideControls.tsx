@@ -178,13 +178,15 @@ function CoverControls({ entity, state, t, call }: WideProps & { call: Call }) {
   const flip = (value: number) => (entity.cover_invert_position ? 100 - value : value);
   const position = reported == null ? null : flip(reported);
   const canSet = position != null && Boolean(Number(state.attributes.supported_features) & COVER_SET_POSITION);
+  // The cover's choice in Card options: only the buttons, only the position, or both (the default).
+  const control = entity.cover_control;
   return <div className="tile-wide__controls tile-cover">
-    {position != null && <VerticalSlider disabled={!canSet} label={`${t("setPosition")}: ${entity.name}`} onCommit={(value) => call("cover", "set_cover_position", { position: flip(value) })} value={position} />}
-    <div className="tile-buttons tile-buttons--vertical">
+    {position != null && control !== "buttons" && <VerticalSlider disabled={!canSet} label={`${t("setPosition")}: ${entity.name}`} onCommit={(value) => call("cover", "set_cover_position", { position: flip(value) })} value={position} />}
+    {!(control === "slider" && canSet) && <div className="tile-buttons tile-buttons--vertical">
       <button aria-label={t("openCover")} onClick={() => call("cover", coverMove(entity, "up"))} type="button"><span className="rotate-up"><HDIcon name="chevron" size={18} /></span></button>
       <button aria-label={t("stopCover")} onClick={() => call("cover", "stop_cover")} type="button"><HDIcon name="stop" size={14} /></button>
       <button aria-label={t("closeCover")} onClick={() => call("cover", coverMove(entity, "down"))} type="button"><span className="rotate-down"><HDIcon name="chevron" size={18} /></span></button>
-    </div>
+    </div>}
   </div>;
 }
 

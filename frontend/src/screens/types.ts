@@ -28,7 +28,8 @@ export function entityIndex(rooms: Room[]): { byId: Map<string, DiscoveredEntity
   const byId = new Map<string, DiscoveredEntity>();
   const names = new Map<string, string>();
   for (const room of rooms) {
-    names.set(room.id, room.name);
+    // "Unassigned" comes untranslated from discovery; screens fall back to their own translated label.
+    if (room.id !== "__unassigned__") names.set(room.id, room.name);
     for (const entity of room.entities) if (!byId.has(entity.entity_id)) byId.set(entity.entity_id, entity);
   }
   return { byId, roomName: (entity) => names.get(entity.area_id) };

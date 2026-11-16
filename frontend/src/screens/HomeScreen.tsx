@@ -54,12 +54,14 @@ function useFitToScreen(screen: { current: HTMLElement | null }) {
       element.style.removeProperty("--u");
       const target = window.innerHeight;
       let height = element.getBoundingClientRect().height;
-      if (window.innerWidth > 720 && height > target + 0.5 && height * MIN_SCALE <= target) {
+      // A size chosen for this device (Settings → This device) is left as chosen.
+      const chosenSize = getComputedStyle(element).getPropertyValue("--hd-ui").trim();
+      if ((!chosenSize || chosenSize === "1") && window.innerWidth > 720 && height > target + 0.5 && height * MIN_SCALE <= target) {
         // Not every size follows the unit, so a few rounds get it right.
         let scale = 1;
         for (let round = 0; round < 4 && height > target + 0.5; round++) {
           scale = Math.max(MIN_SCALE, scale * (target / height) - 0.002);
-          element.style.setProperty("--u", `calc(${UNIT} * ${scale.toFixed(4)})`);
+          element.style.setProperty("--u", `calc(${UNIT} * var(--hd-ui, 1) * ${scale.toFixed(4)})`);
           height = element.getBoundingClientRect().height;
           if (scale === MIN_SCALE) break;
         }

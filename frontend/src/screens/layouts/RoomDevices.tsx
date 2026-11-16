@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { EditableGrid } from "../../components/EditableGrid";
 import { EntityPicker } from "../../components/EntityPicker";
+import { SceneStrip } from "../../components/SceneStrip";
+import { SensorStrip } from "../../components/SensorStrip";
 import { RoomOptions } from "../../components/RoomOptions";
 import { HOME_SCREEN, keyId, roomKey, SIDEBAR_SCREEN } from "../../layout";
 import type { ScreenLayout } from "../../types/config";
@@ -29,6 +31,8 @@ export function RoomDevices({ className, props, render, room, sizable = false }:
 
   return <>
     {editing && <RoomOptions allRooms={allRooms} compact={sizable ? compactSensors(layout, visible, (next) => onLayout(screen, next)) : undefined} hass={hass} room={room} t={t} />}
+    {config.room_sensors && <SensorStrip props={props} room={room} />}
+    {config.room_scenes && <SceneStrip props={props} room={room} />}
     <EditableGrid
       roomScreen={screen}
       hass={hass}

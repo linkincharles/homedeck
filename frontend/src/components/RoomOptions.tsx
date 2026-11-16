@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { TranslationKey } from "../i18n";
-import { isTemperatureSensor, useCustomize } from "../personalize";
+import { isHumiditySensor, isTemperatureSensor, useCustomize } from "../personalize";
 import type { Room } from "../types/discovery";
 import type { HomeAssistant } from "../types/home-assistant";
 import { HA_ICON, HDIcon, isIconName, pageIconChoices, ROOM_ICONS, RoomIcon, roomIcon, type IconName } from "./HDIcon";
@@ -49,6 +49,13 @@ export function RoomOptions({ allRooms, compact, hass, room, t }: { allRooms: Ro
     { label: t("temperatureAuto"), value: "" },
     ...sensors.map(({ entity, room: item }) => ({ label: own.has(entity.entity_id) ? entity.name : `${entity.name} · ${item.name}`, value: entity.entity_id })),
   ];
+  const humidities = allRooms.flatMap((item) => item.entities.map((entity) => ({ entity, room: item })))
+    .filter(({ entity }) => isHumiditySensor(hass.states[entity.entity_id]))
+    .sort((a, b) => Number(own.has(b.entity.entity_id)) - Number(own.has(a.entity.entity_id)) || a.entity.name.localeCompare(b.entity.name));
+  const humidityOptions = [
+    { label: t("humidityNone"), value: "" },
+    ...humidities.map(({ entity, room: item }) => ({ label: own.has(entity.entity_id) ? entity.name : `${entity.name} · ${item.name}`, value: entity.entity_id })),
+  ];
   const pick = (icon: string) => customize.setRoom(room.id, { icon });
 
   return <section className="room-options" aria-label={t("roomOptions")}>
@@ -64,6 +71,10 @@ export function RoomOptions({ allRooms, compact, hass, room, t }: { allRooms: Ro
       <span className="eyebrow">{t("roomTemperature")}</span>
       <HDSelect ariaLabel={t("roomTemperature")} className="room-options__select" onChange={(temperature) => customize.setRoom(room.id, { temperature })} options={options} value={room.temperature_entity ?? ""} />
     </label>
+    {humidities.length > 0 && <label className="room-options__row">
+      <span className="eyebrow">{t("roomHumidity")}</span>
+      <HDSelect ariaLabel={t("roomHumidity")} className="room-options__select" onChange={(humidity) => customize.setRoom(room.id, { humidity })} options={humidityOptions} value={room.humidity_entity ?? ""} />
+    </label>}
     {compact && <label className="hd-detail__confirm room-options__compact"><span><b>{t("compactSensors")}</b><small>{t("compactSensorsDescription")}</small></span><input checked={compact.on} className="st-switch" onChange={(event) => compact.onChange(event.target.checked)} type="checkbox" /></label>}
     <AudienceEditor hass={hass} itemKey={`room:${room.id}`} t={t} />
   </section>;

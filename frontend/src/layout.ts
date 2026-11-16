@@ -13,15 +13,20 @@ export const pageScreen = (pageId: string) => `page:${pageId}`;
 
 export const roomKey = (roomId: string) => `room:${roomId}`;
 export const entityKey = (entityId: string) => `entity:${entityId}`;
-export const WIDGET_KEYS = ["widget:security", "widget:climate", "widget:media", "widget:today", "widget:weather", "widget:sun", "widget:energy", "widget:bins"] as const;
+export const WIDGET_KEYS = ["widget:security", "widget:climate", "widget:media", "widget:today", "widget:weather", "widget:sun", "widget:energy", "widget:bins", "widget:plan", "widget:recent"] as const;
 export type WidgetKey = (typeof WIDGET_KEYS)[number];
 
 export const SECTION_PREFIX = "section:";
 export const isSectionKey = (key: string) => key.startsWith(SECTION_PREFIX);
+export const LIST_PREFIX = "list:";
+export const isListKey = (key: string) => key.startsWith(LIST_PREFIX);
+export const FOLDER_PREFIX = "folder:";
+export const isFolderKey = (key: string) => key.startsWith(FOLDER_PREFIX);
 
 /** Puts each separator back before the item that followed it in the saved order (or at the end). */
 export function withSections(keys: string[], layout: ScreenLayout): string[] {
-  const sections = Object.keys(layout.sections ?? {});
+  // Separators and list cards: items of the screen itself, placed by the saved order.
+  const sections = [...Object.keys(layout.sections ?? {}), ...Object.keys(layout.lists ?? {}), ...Object.keys(layout.folders ?? {})];
   if (sections.length === 0) return keys;
   const result = [...keys];
   const shown = new Set(keys);

@@ -1,4 +1,5 @@
 import { inRoom, isRoomLight } from "../../personalize";
+import { isEnvironmentSensor } from "../../components/SensorStrip";
 import { useRef } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import { arrange, entityKey, getLayout, HOME_SCREEN, keyId, roomKey, roomScreen } from "../../layout";
@@ -101,7 +102,7 @@ export function roomItems(config: HomeDeckConfig, room: Room, allRooms: Room[]) 
   const layout = getLayout(config, screen);
   const everything = new Map(allRooms.flatMap((item) => item.entities).map((entity) => [entity.entity_id, entity]));
   const own = new Set(room.entities.map((entity) => entity.entity_id));
-  const natural = [...room.entities].sort((a, b) => DOMAIN_ORDER.indexOf(a.domain) - DOMAIN_ORDER.indexOf(b.domain) || a.name.localeCompare(b.name));
+  const natural = room.entities.filter((entity) => !(config.room_scenes && entity.domain === "scene") && !(config.room_sensors && isEnvironmentSensor(entity))).sort((a, b) => DOMAIN_ORDER.indexOf(a.domain) - DOMAIN_ORDER.indexOf(b.domain) || a.name.localeCompare(b.name));
   const added = (layout.added ?? []).filter((id) => !own.has(id) && everything.has(id));
   const byKey = new Map([...natural, ...added.map((id) => everything.get(id)!)].map((entity) => [entityKey(entity.entity_id), inRoom(entity, screen, config.room_names?.[screen])]));
   const { visible, hidden } = arrange([...byKey.keys()], layout, true);

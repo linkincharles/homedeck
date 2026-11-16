@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.17.0
+
+- Transitions and effects: the tab bar has a highlight that slides to the chosen tab, pages fade in smoothly, a room's content slides in when you switch rooms, cards arrive one after another and detail windows open with a light spring (on phones they rise from the bottom).
+- Animations per device: in Settings → This device → Animations, each device turns transitions, the cards' animations (Pro) and the animated background on or off, all on by default. The options that were in Appearance and the card style moved there.
+- This device is organized in groups: Look, Animations, Settings and Music.
+- Settings save themselves: every change is saved on its own, with no Save button, and the top shows "Changes saved automatically". Every settings panel now shares the same titles, text and fields.
+- Air conditioner on a small card: the target temperature sits in the top right corner and the card keeps the size of the others.
+- Focus layout: every room starts at the top, lined up.
+- Phones held upright: the tab bar and the Edit button sit a little higher and slimmer.
+- Solid cards (Appearance → Card style) lean to white instead of black.
+- Kids layout: the cover level looks like the brightness bar, the screensaver uses the layout's rounded type and the lock on locked cards follows its style.
+- Child lock: holding a locked card doesn't open its details either, and the message points to the lock at the top of the screen.
+- Floor plan (Pro, in Settings → Navigation): your home drawn floor by floor from Home Assistant's floors and areas, with nothing to set up. Rooms arrange themselves like a plan and glow warm with their lights; open doors and windows show in red, motion pulses and the temperature sits in the corner. Each room shows the same devices and sensors as its own screen (what leaves the room leaves the plan), with sensors as pills showing their reading. A tap switches a device and holding opens its details. In Edit mode, drag a room to move it, its corner to resize it and each device to place it. The plan fills the screen, with no title or room names (those show only in Edit mode), and zooms with a pinch or the mouse wheel. On a phone held upright the plan turns to use the whole screen. Works in every layout. Each floor can have a background image (the real plan: a drawing, photo or screenshot), sent in Edit mode (PNG and WebP keep their transparency), with the rooms placed over it and its visibility adjustable. The 3D button tilts the plan like a model, with low walls and the buttons facing you, and dragging turns and tilts it freely (Shift or two fingers move it). And the Floor plan card (optional, in Settings → Home) shows the first floor with the rooms lit, always at the plan's real proportions, and opens the Floor plan.
+- Devices with no room: in Card options (Edit → tap the card, inside "Unassigned") there's "Move to a room", which shows the device in the chosen room and hides it in "Unassigned". The top of the details also showed "Unassigned" in English; it's translated now.
+- Device details also show the Home Assistant device and the entity ID, in small print, so you can tell where a card comes from (like a router's "Internet access" switch).
+- Security card: with two or more alerts, a tap lists them all (it used to open only the first one), and each one opens its details.
+- Compact sensors on phones take the whole row, with their full name and value, while the other cards stay in two columns.
+- Forecast: the name of the place (the weather entity, like "Home" or a city) shows under the title.
+- Screensaver: up to eight temperature sensors (was six). They sit side by side as long as they fit the screen width, and with many they split evenly into two rows (8 make 4 + 4, 7 make 4 + 3) instead of leaving one alone below.
+- Home Assistant notifications (optional, in Settings → Home): a bell in the header with Home Assistant's own notifications, with a dot and the count when there are any. A tap lists them with title, text and time, and you can dismiss one or all of them (in Home Assistant too).
+- Kids layout: the big line of summary cards (like "Everything secure") is a little smaller, so whole words fit.
+- Home columns by screen: tablets lying down 5 (was 6), big screens 6 or more as they widen, phones lying down 3 or 4.
+- Real glass (optional, in Settings → Appearance, Glass theme): cards look like a pane of glass, with a shining top edge, a soft sheen, richer color behind and a light shadow.
+- Floor plan card with a picture: the card is lit, like a room with lights on, and shows the picture as it is.
+- Kids layout: cards, icons and controls follow the rounder or squarer corners option.
+- Room cards with extra devices (like two covers) fit their row on smaller tablets too.
+- On Android, long descriptions in Settings no longer show in larger text than the rest.
+- Covers: choose buttons, the position bar or both in Card options.
+- Rows that scroll sideways (tab bar, rooms, scenes) fade where there is more to see.
+- The header stays still when changing pages; people now come before the weather.
+- The media player fits phone screens without scrolling, on frosted glass like the screensaver.
+- Details windows always open on the visible part of the screen, inside the Home Assistant app too.
+- Panel text no longer gets selected by a long press.
+- Time format (in Settings → Home): Automatic, 24 h or 12 h. Automatic follows the time format of your Home Assistant profile, and it applies to the clock, the screensaver, the calendar, history charts and the hourly forecast.
+- Text size and interface size (in Settings → This device): Small, Normal or Large, kept per device. Text size changes only the text; interface size changes everything together (cards, icons, buttons, the sidebar and the text), to fit more on a wall tablet.
+- Forecast in the header (optional, in Settings → Weather): the next 3 or 5 days beside the weather at the top of the screen, with high and low.
+- Recently added card (Pro, in Settings → Home): covers of the newest movies and episodes in your library, from the sensors of integrations like Plex Recently Added, Jellyfin, Sonarr and Radarr. At double and large size it shows more covers.
+- Folder card (Pro, in Edit mode): a card that opens a window with its own cards, arranged like a room (add devices, sizes, separators and lists). The card shows its icon, its name and how many devices are on. Handy for a Garden or a Garage on Home.
+- Start screen (in Settings → Navigation): choose the screen the panel opens on, among Home, the tabs that are on and your pages. The panel also goes back to it after a minute without a touch.
+- Folding separators: outside Edit mode, a tap on a separator's title folds or unfolds the cards below it, and each device remembers what is folded.
+- ½× for any card: besides sensors, lights, switches, fans, covers, scripts, scenes and more can be half height, one line with icon, name and state. A tap still switches them.
+- Group rooms by floor (optional, in Settings → Rooms): in the Rooms tab, the room list is split under Home Assistant's floors.
+- Lights button on room cards (in Settings → Appearance, on by default): turn it off for room cards without the round lights button.
+- Cover without highlight (in the cover's Card options): the card keeps the plain look, open or closed.
+- Export and import the configuration (in Settings → System): a file with everything set in HomeDeck, to keep as a backup and restore later. The license is not included.
+- The weather window and the Security alert list close with Esc.
+- Faster cameras: the live view uses Home Assistant's WebRTC player whenever the camera offers WebRTC (it starts in about a second and stays smooth, where MJPEG of an RTSP camera was slow and froze). Other cameras stay on MJPEG, and each camera can go back to MJPEG in Card options ("Use MJPEG first").
+- Alarm: a "Buttons on the card" option in the alarm panel's options. At double size and up, the card shows Home, Away and Night (or Disarm), and so does the Security card on Home. When a code is needed, a tap opens the keypad.
+- Security: any binary sensor can join Security from its card options ("Security item"), like a window Home Assistant doesn't mark as a window, with an alert while it is on or open.
+- Waste collection: sensors in Italian and French are understood (oggi, domani, tra 3 giorni; aujourd'hui, demain, dans 3 jours), and calendars work too: the date of the next event, or of the next event with a word in its title ("Carta", "Plastica"), for one calendar with every collection.
+- Humidity on the room card (optional, in the room options in Edit mode): a humidity sensor beside the temperature, like "22° · 55%".
+- Outdoor temperature and humidity (optional, in Settings → Weather): your own sensors replace the weather's values in the header, the weather card and the screensaver, and the forecast stays.
+- Fixed: the device list for adding a notice (and other lists opened in Settings) showed behind the settings that followed it.
+- List card (Pro, in Edit mode): several entities in one card, each on its own line with its value or its control (switch, cover, option list, run button). Start from a device to bring all its entities at once, or pick them one by one from any room. You can change the title, rename and reorder the lines, and have the list's entities leave the other cards of the screen. A tap on a reading opens its details with the history. Works in rooms, on Home and on pages, in every layout.
+- Environment sensors at the top of each room (optional, in Settings → Rooms): a room's temperature, humidity, CO₂, air quality, light and pressure readings show as pills under its name, with the reading and the sensor's name, instead of among the cards. A tap opens the details with the history. In Edit mode you can reorder or hide them and add other sensors. Works in every layout.
+- Scenes at the top of each room (optional, in Settings → Rooms): each room shows its scenes as buttons above its devices, styled like the scene strip on Home, instead of among the cards. In Edit mode you can reorder or hide them and add scenes or scripts from elsewhere. Works in every layout.
+- Waste collection: each bin has a new "Value" choice, to read the sensor's state (as before) or one of its attributes, with each one's current value shown in the list. The attribute is read as a number of days, a date or a phrase, so one sensor with an attribute per waste type can feed several bins.
+
 ## 0.16.7
 
 - Kids layout (Pro): in Settings → Layout, a playful children's game look with rounded type, colorful chunky cards with a solid edge, bouncy animations (cards hop in, squish when tapped, icons wiggle while on and sparkle when turned on) and six exclusive animated scenes in Settings → Appearance: Sky, Ocean, Space, Candy, Enchanted (pink, with a castle, butterflies and sparkles) and Road (blue, with hills and little cars), also offered in the first setup when the Kids layout is picked. The motion stops in Edit mode and for reduced motion.

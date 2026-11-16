@@ -65,6 +65,54 @@ export function useChildLockNote(): ChildLockNote | null {
   return note?.kind ?? null;
 }
 
+/** Shortcut bar on this device: a black strip at the bottom with up to 9 named shortcuts in 9 equal
+ * parts (empty parts stay blank), like the key bar of a wall panel with buttons under the screen.
+ * Keys 1–9 on a keyboard or remote run the shortcut in that part. Off by default. */
+const KEYBAR_KEY = "homedeck-keybar";
+export interface KeyBarSlot { label: string; entity: string }
+export interface KeyBarPrefs { on: boolean; hideDock: boolean; slots: KeyBarSlot[] }
+export const KEYBAR_SLOTS = 9;
+const emptySlots = () => Array.from({ length: KEYBAR_SLOTS }, () => ({ label: "", entity: "" }));
+let keyBarCache: { raw: string | null; value: KeyBarPrefs } | null = null;
+export const keyBar = (): KeyBarPrefs => {
+  const raw = read(KEYBAR_KEY);
+  // The same object while nothing changed, so components reading it don't re-render for nothing.
+  if (keyBarCache && keyBarCache.raw === raw) return keyBarCache.value;
+  let value: KeyBarPrefs = { on: false, hideDock: false, slots: emptySlots() };
+  try {
+    const saved = raw ? JSON.parse(raw) as Partial<KeyBarPrefs> : null;
+    if (saved) value = {
+      on: saved.on === true,
+      hideDock: saved.hideDock === true,
+      slots: emptySlots().map((slot, index) => {
+        const item = saved.slots?.[index];
+        return item && typeof item === "object" ? { label: String(item.label ?? "").slice(0, 24), entity: String(item.entity ?? "") } : slot;
+      }),
+    };
+  } catch { /* a broken value counts as off */ }
+  keyBarCache = { raw, value };
+  return value;
+};
+export const setKeyBar = (prefs: KeyBarPrefs) => write(KEYBAR_KEY, prefs.on || prefs.slots.some((slot) => slot.label || slot.entity) ? JSON.stringify(prefs) : null);
+
+/** Animations on this device, each on by default (a slow tablet can turn them off without touching the
+ * others): screen transitions and effects, the cards' own animations (Pro) and the animated background. */
+const MOTION_KEY = "homedeck-motion";
+export interface MotionPrefs { ui: boolean; cards: boolean; background: boolean }
+let motionCache: { raw: string | null; value: MotionPrefs } | null = null;
+export const motionPrefs = (): MotionPrefs => {
+  const raw = read(MOTION_KEY);
+  if (motionCache && motionCache.raw === raw) return motionCache.value;
+  let value: MotionPrefs = { ui: true, cards: true, background: true };
+  try {
+    const saved = raw ? JSON.parse(raw) as Partial<MotionPrefs> : null;
+    if (saved) value = { ui: saved.ui !== false, cards: saved.cards !== false, background: saved.background !== false };
+  } catch { /* defaults */ }
+  motionCache = { raw, value };
+  return value;
+};
+export const setMotionPrefs = (prefs: MotionPrefs) => write(MOTION_KEY, prefs.ui && prefs.cards && prefs.background ? null : JSON.stringify(prefs));
+
 /** Re-renders when a device choice changes (in Settings, or in another tab of the same browser). */
 export function useDevicePref<T>(get: () => T): T {
   const [value, setValue] = useState(get);
@@ -97,3 +145,23 @@ export function spotifyPlayPause(hass: { callService: (domain: string, service: 
   void hass.callService("media_player", "media_play_pause", { entity_id: entityId });
   return true;
 }
+
+/** Separators folded on this device (their keys); every section starts open. */
+const FOLDED_KEY = "homedeck-folded";
+export const foldedSections = (): string[] => { try { const list = JSON.parse(read(FOLDED_KEY) ?? "[]"); return Array.isArray(list) ? list.filter((item) => typeof item === "string") : []; } catch { return []; } };
+export const setSectionFolded = (key: string, folded: boolean) => {
+  const rest = foldedSections().filter((item) => item !== key);
+  write(FOLDED_KEY, folded ? JSON.stringify([...rest, key].slice(-200)) : rest.length > 0 ? JSON.stringify(rest) : null);
+};
+
+/** This device's text size and interface size (Settings → This device): "small", "normal" (the default) or "large". */
+export type SizeChoice = "small" | "normal" | "large";
+const FONT_KEY = "homedeck-font-size";
+const UI_KEY = "homedeck-ui-size";
+const sizeOf = (value: string | null): SizeChoice => (value === "small" || value === "large" ? value : "normal");
+export const fontSize = () => sizeOf(read(FONT_KEY));
+export const setFontSize = (size: SizeChoice) => write(FONT_KEY, size === "normal" ? null : size);
+export const uiSize = () => sizeOf(read(UI_KEY));
+export const setUiSize = (size: SizeChoice) => write(UI_KEY, size === "normal" ? null : size);
+export const FONT_SCALE: Record<SizeChoice, number> = { small: 0.88, normal: 1, large: 1.14 };
+export const UI_SCALE: Record<SizeChoice, number> = { small: 0.84, normal: 1, large: 1.14 };

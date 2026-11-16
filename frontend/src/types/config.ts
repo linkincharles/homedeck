@@ -57,6 +57,28 @@ export interface ScreenLayout {
   added?: string[];
   /** Separators placed in the order, by key ("section:<id>") with their title. */
   sections?: Record<string, string>;
+  /** List cards placed in the order (Pro), by key ("list:<id>"). */
+  lists?: Record<string, HomeDeckEntityList>;
+  /** Folder cards placed in the order (Pro), by key ("folder:<id>"). */
+  folders?: Record<string, HomeDeckFolder>;
+}
+
+/** A card that opens a window with its own cards, arranged like a room (never another folder). */
+export interface HomeDeckFolder {
+  title: string;
+  icon?: string;
+  entities: string[];
+  layout?: ScreenLayout;
+}
+
+/** A card with several entities, one per line, each with its value or control. */
+export interface HomeDeckEntityList {
+  title: string;
+  entities: string[];
+  /** The name each entity shows in this list; none means its own name. */
+  names?: Record<string, string>;
+  /** Its entities leave the other cards of the same screen. */
+  hide_cards?: boolean;
 }
 
 export interface HomeDeckConfig {
@@ -77,6 +99,12 @@ export interface HomeDeckConfig {
   ha_icons?: boolean;
   /** Rooms use the icon of their area in Home Assistant, when it has one. */
   ha_room_icons?: boolean;
+  /** Each room shows its scenes in a strip at the top (like Home's) instead of among its cards. */
+  room_scenes?: boolean;
+  /** Each room shows its environment sensors (temperature, humidity, CO2...) as pills at the top, out of its cards. */
+  room_sensors?: boolean;
+  /** The rooms list of the Rooms tab grouped under Home Assistant's floors (off by default). */
+  rooms_by_floor?: boolean;
   /** Per device, set in its details: its icon ("ha" or a HomeDeck icon) and whether a tap asks to confirm. */
   entity_options?: Record<string, HomeDeckEntityOptions>;
   /** Extra devices shown inside double and large cards, by card key ("entity:…", "room:…"). */
@@ -85,6 +113,8 @@ export interface HomeDeckConfig {
   card_link_names?: Record<string, Record<string, string>>;
   /** A device's name in one room only (Edit → details → rename, "Only in this room"): room screen to entity id to name. */
   room_names?: Record<string, Record<string, string>>;
+  /** Pro floor plan: rooms on a 24 x 16 grid (whole units), device spots inside their room (0–1), devices left off. */
+  floorplan?: HomeDeckFloorplan;
   /** Who a card or room is not shown to: card key to Home Assistant user ids. */
   hidden_for?: Record<string, string[]>;
   /** The waste collection card: a sensor, a name and a color for each bin. */
@@ -107,6 +137,8 @@ export interface HomeDeckConfig {
     show_clock: boolean;
     show_weather: boolean;
     show_presence: boolean;
+    /** A bell in the header with Home Assistant's own notifications (off by default). */
+    ha_notifications?: boolean;
     /** The people shown in the header (person entities); everyone when empty. */
     presence_people?: string[];
     /** Entities shown as small notices beside the presence avatars, only when there is something to notice. */
@@ -130,6 +162,12 @@ export interface HomeDeckConfig {
     media: boolean;
     security: boolean;
     cameras?: boolean;
+    /** Pro: the floor plan page. */
+    plan?: boolean;
+    /** The floor plan's name, on its tab and its card (default: "Floor plan" / "Home floor plan"). */
+    plan_title?: string;
+    /** The screen the panel opens on and goes back to after a minute idle: a tab or a page id (empty: Home). */
+    start?: string;
     /** Tab ids of the bottom bar in the order arranged in Edit mode (Home always comes first). */
     order?: string[];
   };
@@ -164,6 +202,12 @@ export interface HomeDeckConfig {
   weather: {
     entity_id: string;
     forecast_type: "daily" | "hourly";
+    /** An outdoor sensor that replaces the weather's temperature (header, card, screensaver); none by default. */
+    outdoor_temperature?: string;
+    /** The same for the humidity. */
+    outdoor_humidity?: string;
+    /** The next days shown beside the weather in the header: 0 (none, the default), 3 or 5. */
+    header_days?: number;
   };
   pages: HomeDeckPageConfig[];
   layouts: Record<string, ScreenLayout>;
@@ -183,7 +227,7 @@ export interface HomeDeckConfig {
     /** Under the clock: today's events and the reminders due (same calendars and list as the agenda). */
     show_events?: boolean;
     show_todo?: boolean;
-    /** Up to six temperature sensors under the clock, each named by its room. */
+    /** Up to eight temperature sensors under the clock, each named by its room. */
     sensors?: string[];
     /** "large" makes the date, weather and temperatures bigger, to read from across the room. */
     size?: "normal" | "large";
@@ -194,7 +238,13 @@ export interface HomeDeckConfig {
     sun: boolean;
     energy: boolean;
     bins?: boolean;
+    /** Pro: a small floor plan on Home that opens the Floor plan page. */
+    plan?: boolean;
+    /** Pro: covers of the media recently added to a library. */
+    recent?: boolean;
   };
+  /** The "recently added" sensors of that card (Plex Recently Added, Jellyfin, Sonarr, Radarr...). */
+  recent_media?: string[];
   /** Sensors of the energy card; empty fields are left out. */
   energy: HomeDeckEnergy;
   /** Pro: special dates (holidays by the home's country, birthdays from the calendar, own dates). */
@@ -220,6 +270,8 @@ export interface HomeDeckRoomOptions {
   name?: string;
   icon?: string;
   temperature?: string;
+  /** A humidity sensor shown beside the temperature on the room card (none by default). */
+  humidity?: string;
 }
 
 export interface HomeDeckEntityOptions {
@@ -243,6 +295,16 @@ export interface HomeDeckEntityOptions {
   cover_side_buttons?: boolean;
   /** Covers wired the other way round: the up and down buttons are swapped. */
   cover_swap_buttons?: boolean;
+  /** A binary sensor outside the security classes, added to Security. */
+  security_item?: boolean;
+  /** Covers: the card never takes the highlighted look. */
+  cover_no_highlight?: boolean;
+  /** Covers: "buttons" only or the position "slider" only; both when not set. */
+  cover_control?: "buttons" | "slider";
+  /** Alarm panels: arm and disarm buttons on the card and on Home's Security card. */
+  alarm_buttons?: boolean;
+  /** Cameras: MJPEG first, even when the camera offers WebRTC. */
+  camera_mjpeg?: boolean;
 }
 
 /** A tap that dismisses the notice until it changes, turns its entity off or runs a script, button, automation or scene. */
@@ -278,6 +340,8 @@ export interface HomeDeckCondition {
 export interface HomeDeckCardStyle {
   corners: number;
   frame: boolean;
+  /** Real glass on the cards: a shining top edge, a soft sheen, richer color behind and a light shadow. Off by default. */
+  shine?: boolean;
   glass: number;
   /** Lit fans spin, lights glow and washing machines shake while they run. */
   animations?: boolean;
@@ -287,6 +351,8 @@ export interface HomeDeckCardStyle {
   players?: boolean;
   /** Sensor cards at 1x and ½x also show how long ago they changed. */
   sensor_since?: boolean;
+  /** The lights button on room cards; on unless set to false. */
+  room_power?: boolean;
 }
 
 export type HomeDeckBinColor = "black" | "brown" | "green" | "blue" | "yellow" | "grey" | "red";
@@ -295,6 +361,10 @@ export interface HomeDeckBin {
   entity: string;
   name: string;
   color: HomeDeckBinColor;
+  /** The sensor attribute that tells the day; none means the sensor's state (or its daysTo attribute). */
+  attribute?: string;
+  /** Calendars: only events whose title has this text ("Paper"); none means the next event. */
+  match?: string;
 }
 
 export interface HomeDeckEnergy {
@@ -311,3 +381,12 @@ export interface HomeDeckEnergy {
   solar_today: string;
 }
 
+
+export interface HomeDeckFloorplanRect { x: number; y: number; w: number; h: number }
+export interface HomeDeckFloorplan {
+  rooms: Record<string, HomeDeckFloorplanRect>;
+  devices: Record<string, { x: number; y: number }>;
+  hidden: string[];
+  /** A background image per floor (the real plan), and how visible it is (0.1–1). */
+  images?: Record<string, { src: string; opacity?: number }>;
+}

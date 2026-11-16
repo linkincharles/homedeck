@@ -30,6 +30,16 @@ export interface DiscoveredEntity {
   cover_invert_state?: boolean;
   /** Small cover tiles: the up, stop and down buttons stacked on the right, so the tile keeps the height of the others. */
   cover_side_buttons?: boolean;
+  /** A binary sensor outside the security classes that the person added to Security. */
+  security_item?: boolean;
+  /** Covers: the card never takes the highlighted look, open or closed. */
+  cover_no_highlight?: boolean;
+  /** Covers: "buttons" only, the position "slider" only, or both (none set). */
+  cover_control?: "buttons" | "slider";
+  /** Alarm panels: arm and disarm buttons right on the card and on Home's Security card. */
+  alarm_buttons?: boolean;
+  /** Cameras: MJPEG first, even when the camera offers WebRTC. */
+  camera_mjpeg?: boolean;
   /** Covers wired the other way round: the up and down buttons are swapped. */
   cover_swap_buttons?: boolean;
   /** Name in Home Assistant, when a nickname was given in HomeDeck. */
@@ -60,6 +70,7 @@ export interface Room {
   display_icon?: string;
   /** Sensor chosen for the room's temperature; none: the climate device, as before. */
   temperature_entity?: string;
+  humidity_entity?: string;
 }
 
 export interface DiscoveryResponse {

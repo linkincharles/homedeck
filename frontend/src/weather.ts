@@ -199,6 +199,11 @@ export function useWeather(hass: HomeAssistant, config: HomeDeckConfig, withFore
   } else if (meteo) {
     now = meteo.now;
   }
+  // Real readings from the person's own outdoor sensors win over the weather service's.
+  const ownTemperature = config.weather.outdoor_temperature ? numeric(hass.states[config.weather.outdoor_temperature]?.state) : undefined;
+  const ownHumidity = config.weather.outdoor_humidity ? numeric(hass.states[config.weather.outdoor_humidity]?.state) : undefined;
+  if (now && ownTemperature != null) now = { ...now, temperature: ownTemperature };
+  if (now && ownHumidity != null) now = { ...now, humidity: ownHumidity };
   const now36 = Date.now() - 3_600_000;
   const hourly = (entityHourly.length > 0 ? entityHourly : meteo?.hourly ?? []).filter((item) => !item.datetime || Date.parse(item.datetime) > now36).slice(0, 24);
   const daily = (entityDaily.length > 0 ? entityDaily : meteo?.daily ?? []).slice(0, 7);

@@ -1,3 +1,4 @@
+import { hourOptions } from "../../clock";
 import { isRoomLight } from "../../personalize";
 import { useEffect, useRef, useState } from "react";
 import { openSidebar, sidebarHidden } from "../../sidebar";
@@ -112,7 +113,7 @@ function FocusRooms(props: FocusLayoutProps) {
     <div className="fc-track" onScroll={onScroll} ref={track}>
       <section className="fc-page fc-page--home" aria-label={t("home")}>
         <span className="eyebrow">{new Intl.DateTimeFormat(language, { weekday: "long", day: "numeric", month: "long" }).format(now)}</span>
-        <time className="fc-clock">{new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(now)}</time>
+        <time className="fc-clock">{new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" }).format(now)}</time>
         <div className="fc-summary">
           {weather && <span>{weather.temperature != null ? `${Math.round(weather.temperature)}°` : ""}{weather.temperature != null && weather.condition ? " · " : ""}{weather.condition ? weatherConditionLabel(weather.condition, language) : ""}</span>}
           <span>{litTotal === 1 ? t("oneLightOn") : t("lightsOn").replace("{count}", String(litTotal))}</span>

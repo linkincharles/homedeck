@@ -1,3 +1,5 @@
+import { hourOptions } from "../clock";
+import type { CSSProperties } from "react";
 import { useContext, useEffect, useState } from "react";
 import { newYearCountdown } from "../seasons";
 import { OccasionContext } from "./SeasonLayer";
@@ -24,6 +26,11 @@ interface ScreensaverProps {
   /** The panel's rooms, to name each temperature sensor by its room. */
   rooms?: Room[];
   t: (key: TranslationKey) => string;
+}
+
+/** Columns for the readings: one row up to four, else two rows as even as they can be (8 → 4 + 4, 7 → 4 + 3). */
+function balancedColumns(count: number): number {
+  return count <= 4 ? Math.max(1, count) : Math.ceil(count / 2);
 }
 
 /** The chosen temperature sensors as "Room 22.5°", leaving out the ones without a number. */
@@ -60,14 +67,14 @@ export function Screensaver({ config, hass, language, onDismiss, rooms, t }: Scr
 
   return <div aria-label={t("tapToReturn")} className={`hd-saver${large ? " hd-saver--large" : ""}`} onClick={onDismiss} role="button" tabIndex={0}>
     <div className="hd-saver__clock">
-      <time className="hd-saver__time">{new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(now)}</time>
+      <time className="hd-saver__time">{new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" }).format(now)}</time>
       <div className="hd-saver__date">{new Intl.DateTimeFormat(language, { weekday: "long", day: "numeric", month: "long" }).format(now)}</div>
-      {large && (weather || temperatures.length > 0) && <div className={`hd-saver__stats${temperatures.length > 3 ? " hd-saver__stats--many" : ""}`}>
+      {large && (weather || temperatures.length > 0) && <div className={`hd-saver__stats${temperatures.length > 3 ? " hd-saver__stats--many" : ""}`} style={{ "--saver-cols": balancedColumns(temperatures.length + (weather && temperature != null ? 1 : 0)) } as CSSProperties}>
         {weather && temperature != null && <div className="hd-saver__stat"><b>{temperature}°</b><span><HDIcon name={weatherIcon(weather.condition ?? "")} size={16} />{weather.condition ? weatherConditionLabel(weather.condition, language) : t("weather")}</span></div>}
         {temperatures.map((item) => <div className="hd-saver__stat" key={item.id}><b>{item.value}</b><span>{item.name}</span></div>)}
       </div>}
       {!large && weather && <div className="hd-saver__weather"><HDIcon name={weatherIcon(weather.condition ?? "")} size={22} /><span>{temperature != null ? `${temperature}°` : ""}{temperature != null && weather.condition ? " · " : ""}{weather.condition ? weatherConditionLabel(weather.condition, language) : ""}</span></div>}
-      {!large && temperatures.length > 0 && <div className="hd-saver__rooms">{temperatures.map((item) => <span key={item.id}><HDIcon name="climate" size={20} /><span>{item.name}</span><b>{item.value}</b></span>)}</div>}
+      {!large && temperatures.length > 0 && <div className={`hd-saver__rooms${temperatures.length > 4 ? " hd-saver__rooms--many" : ""}`} style={{ "--saver-cols": balancedColumns(temperatures.length) } as CSSProperties}>{temperatures.map((item) => <span key={item.id}><HDIcon name="climate" size={20} /><span>{item.name}</span><b>{item.value}</b></span>)}</div>}
       {(() => {
         // Special dates: the greeting on the day, and on New Year's Eve the time left to midnight.
         const eve = occasion?.id === "newyear" ? newYearCountdown(now) : null;

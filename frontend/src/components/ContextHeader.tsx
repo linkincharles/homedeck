@@ -1,9 +1,11 @@
+import { hourOptions } from "../clock";
 import { useCustomize } from "../personalize";
 import { HeaderBadges } from "./HeaderBadges";
 import { useEffect, useMemo, useRef, useState, useContext } from "react";
 import { OccasionContext } from "./SeasonLayer";
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
+import { useEscape } from "../useEscape";
 import { weatherConditionLabel, type TranslationKey } from "../i18n";
 import type { HomeDeckConfig } from "../types/config";
 import type { HomeAssistant } from "../types/home-assistant";
@@ -11,6 +13,7 @@ import { numeric, useWeather, type WeatherForecast, type WeatherNow } from "../w
 import { openSidebar, sidebarHidden } from "../sidebar";
 import { AgendaButtons } from "./Agenda";
 import { HDIcon, type IconName } from "./HDIcon";
+import { NotificationBell } from "./HaNotifications";
 import { childLocked, childLockEnabled, childLockNote, setChildLocked, useDevicePref } from "../devicePrefs";
 
 interface ContextHeaderProps {
@@ -51,7 +54,9 @@ export function ContextHeader({ config, hass, language, onSettings, part = "all"
   // The forecast opens at the shell, so the dock and the Edit button stay behind it.
   const headerRef = useRef<HTMLElement>(null);
   const shell = headerRef.current?.closest(".app-shell") ?? null;
-  const { now: weather, daily, hourly, sunrise, sunset } = useWeather(hass, config, forecastOpen);
+  // Optional: the next 3 or 5 days beside the weather in the header (Settings → Weather).
+  const headerDays = config.home.show_weather ? config.weather.header_days ?? 0 : 0;
+  const { now: weather, daily, hourly, sunrise, sunset } = useWeather(hass, config, forecastOpen || headerDays > 0);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -63,7 +68,7 @@ export function ContextHeader({ config, hass, language, onSettings, part = "all"
   const people = useMemo(() => Object.values(hass.states).filter((state) => state.entity_id.startsWith("person.") && (chosenPeople.length === 0 || chosenPeople.includes(state.entity_id))), [hass.states, chosenPeople.join()]);
   const presentPeople = people.filter((person) => person.state === "home");
   const date = new Intl.DateTimeFormat(language, { weekday: "long", day: "2-digit", month: "long" }).format(now);
-  const time = new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(now);
+  const time = new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" }).format(now);
   const temperature = weather?.temperature;
   const condition = weather?.condition;
   const conditionLabel = condition ? weatherConditionLabel(condition, language) : t("unavailable");
@@ -74,15 +79,17 @@ export function ContextHeader({ config, hass, language, onSettings, part = "all"
         {part !== "status" && <div className="context-header__clock"><span>{date}{occasion && <b className={occasion.phase === "day" ? "hd-season-badge hd-season-badge--day" : "hd-season-badge"}>{occasion.badge}</b>}</span><div className="context-header__time">{config.home.show_clock && <strong>{time}</strong>}<AgendaButtons config={config} hass={hass} language={language} t={t} /></div></div>}
         {part !== "clock" && <div className="context-header__right">
           {(config.home.badges?.length ?? 0) > 0 && <HeaderBadges hass={hass} ids={config.home.badges!.filter((id) => !customize?.restricted(`entity:${id}`))} language={language} rules={config.home.badge_rules} styles={config.home.badge_styles} t={t} taps={config.home.badge_taps} texts={config.home.badge_texts} />}
+          {config.home.show_presence && people.length > 0 && <div className="presence-stack" aria-label={`${presentPeople.length} ${t("peopleHome")}`}>{people.slice(0, 4).map((person, index) => <span className={person.state === "home" ? "presence-avatar presence-avatar--home" : "presence-avatar"} key={person.entity_id} style={{ "--avatar": AVATAR_COLORS[index % AVATAR_COLORS.length] } as CSSProperties} title={`${person.attributes.friendly_name ?? person.entity_id}: ${person.state}`}>{person.attributes.entity_picture ? <img alt="" src={person.attributes.entity_picture} /> : initials(String(person.attributes.friendly_name ?? person.entity_id.split(".")[1]))}</span>)}</div>}
           {config.home.show_weather && weather && (
             <button className="weather-chip" onClick={() => setForecastOpen(true)} title={t("weatherForecast")} type="button">
               <HDIcon name={conditionIcon(condition)} size={20} />
               {temperature != null && <b>{`${Math.round(temperature)}°`}</b>}
               {condition && <small>{conditionLabel}</small>}
+              {headerDays > 0 && <HeaderDays days={daily.slice(1, headerDays + 1)} language={language} />}
             </button>
           )}
-          {config.home.show_presence && people.length > 0 && <div className="presence-stack" aria-label={`${presentPeople.length} ${t("peopleHome")}`}>{people.slice(0, 4).map((person, index) => <span className={person.state === "home" ? "presence-avatar presence-avatar--home" : "presence-avatar"} key={person.entity_id} style={{ "--avatar": AVATAR_COLORS[index % AVATAR_COLORS.length] } as CSSProperties} title={`${person.attributes.friendly_name ?? person.entity_id}: ${person.state}`}>{person.attributes.entity_picture ? <img alt="" src={person.attributes.entity_picture} /> : initials(String(person.attributes.friendly_name ?? person.entity_id.split(".")[1]))}</span>)}</div>}
           {sidebarHidden(hass) && <button aria-label={t("openMenu")} className="round-action" onClick={(event) => openSidebar(event.currentTarget)} type="button"><HDIcon name="menu" size={19} /></button>}
+          {config.home.ha_notifications && <NotificationBell hass={hass} language={language} shell={shell} t={t} />}
           <ChildLockButton t={t} />
           <button aria-label={t("settings")} className="round-action" onClick={onSettings} type="button"><HDIcon name="settings" size={19} /></button>
         </div>}
@@ -97,12 +104,13 @@ export function ForecastSheet({ daily, hourly, language, onClose, shell, sunrise
   daily: WeatherForecast[]; hourly: WeatherForecast[]; language?: string; onClose: () => void; shell: Element;
   sunrise?: string; sunset?: string; t: (key: TranslationKey) => string; weather?: WeatherNow;
 }) {
+  useEscape(onClose);
   const condition = weather?.condition;
   const conditionLabel = condition ? weatherConditionLabel(condition, language) : t("unavailable");
   return createPortal(
     <div aria-labelledby="weather-modal-title" aria-modal="true" className="weather-modal" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} role="dialog">
       <section className="weather-modal__panel hd-forecast">
-        <header><div><h2 id="weather-modal-title">{t("weatherForecast")}</h2></div><button aria-label={t("close")} className="hd-close" onClick={onClose} type="button"><HDIcon name="close" size={20} /></button></header>
+        <header><div><h2 id="weather-modal-title">{t("weatherForecast")}</h2>{weather?.source && <p className="hd-forecast__place">{weather.source}</p>}</div><button aria-label={t("close")} className="hd-close" onClick={onClose} type="button"><HDIcon name="close" size={20} /></button></header>
         <ForecastBody condition={condition} conditionLabel={conditionLabel} daily={daily} hourly={hourly} language={language} sunrise={sunrise} sunset={sunset} t={t} temperature={weather?.temperature} weather={weather} />
       </section>
     </div>,
@@ -112,12 +120,28 @@ export function ForecastSheet({ daily, hourly, language, onClose, shell, sunrise
 
 /** The forecast window, as in the main dashboard: now with today's max and min, quick facts,
  * the next hours sideways and the next days with a temperature bar. */
+/** The next days beside the weather in the header: weekday, icon, high and low. */
+function HeaderDays({ days, language }: { days: WeatherForecast[]; language?: string }) {
+  if (days.length === 0) return null;
+  const weekday = new Intl.DateTimeFormat(language, { weekday: "short" });
+  return <span className="weather-chip__days">{days.map((day, index) => {
+    const high = numeric(day.temperature);
+    const low = numeric(day.templow);
+    return <span key={day.datetime ?? index}>
+      <small>{day.datetime ? weekday.format(new Date(day.datetime)).replace(".", "") : ""}</small>
+      <HDIcon name={conditionIcon(day.condition)} size={16} />
+      <b>{high != null ? `${Math.round(high)}°` : "—"}</b>
+      {low != null && <i>{Math.round(low)}°</i>}
+    </span>;
+  })}</span>;
+}
+
 function ForecastBody({ condition, conditionLabel, daily, hourly, language, sunrise, sunset, t, temperature, weather }: {
   condition?: string; conditionLabel: string; daily: WeatherForecast[]; hourly: WeatherForecast[]; language?: string;
   sunrise?: string; sunset?: string; t: (key: TranslationKey) => string; temperature?: number; weather?: WeatherNow;
 }) {
-  const time = new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" });
-  const hour = new Intl.DateTimeFormat(language, { hour: "2-digit" });
+  const time = new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" });
+  const hour = new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit" });
   const weekday = new Intl.DateTimeFormat(language, { weekday: "short" });
   const today = daily[0];
   const high = numeric(today?.temperature);
@@ -183,8 +207,18 @@ function ChildLockButton({ t }: { t: (key: TranslationKey) => string }) {
   const enabled = useDevicePref(childLockEnabled);
   const locked = useDevicePref(childLocked);
   const [holding, setHolding] = useState(false);
+  const [progress, setProgress] = useState(0);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
+  // While held, the button's own outline fills up around it (no separate circle that could sit off center).
+  useEffect(() => {
+    if (!holding) { setProgress(0); return; }
+    const began = performance.now();
+    let frame = 0;
+    const tick = (now: number) => { setProgress(Math.min(1, (now - began) / HOLD_MS)); frame = window.requestAnimationFrame(tick); };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [holding]);
   if (!enabled) return null;
   const start = () => {
     window.clearTimeout(timer.current);
@@ -214,6 +248,6 @@ function ChildLockButton({ t }: { t: (key: TranslationKey) => string }) {
     type="button"
   >
     <HDIcon name={locked ? "lock" : "unlock"} size={19} />
-    <svg aria-hidden="true" className="hd-child-lock__ring" viewBox="0 0 40 40"><circle cx="20" cy="20" pathLength="100" r="18" /></svg>
+    <i aria-hidden="true" className="hd-child-lock__ring" style={{ "--hold": progress } as CSSProperties} />
   </button>;
 }

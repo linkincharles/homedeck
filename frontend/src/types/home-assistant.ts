@@ -69,6 +69,8 @@ export interface HomeAssistant {
   };
   locale?: {
     language?: string;
+    /** The profile's time format: "12", "24", "language" or "system". */
+    time_format?: string;
   };
   language?: string;
   /** Who is using this panel. */

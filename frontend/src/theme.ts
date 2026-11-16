@@ -16,7 +16,7 @@ export const theme = String.raw`
 }
 
 /* One unit drives every size, so a 7" Echo Show and a 27" monitor keep the same proportions. */
-.app-shell { --u: clamp(4.4px, min(1vw, calc(var(--hd-vh, 1vh)*1.05)), 13px); --paper: var(--hd-accent, #f4edd9); font-family: var(--f-body); -webkit-font-smoothing: antialiased; }
+.app-shell { --u: calc(clamp(4.4px, min(1vw, calc(var(--hd-vh, 1vh)*1.05)), 13px) * var(--hd-ui, 1)); -webkit-text-size-adjust: 100%; text-size-adjust: 100%; --paper: var(--hd-accent, #f4edd9); font-family: var(--f-body); -webkit-font-smoothing: antialiased; }
 /* No container-type here: it would turn the shell into the containing block of the fixed dock and sheets. */
 .app-shell > .screen {
   min-height: 100vh; display: flex; flex-direction: column; gap: calc(var(--u)*2.6);
@@ -222,8 +222,8 @@ export const theme = String.raw`
 
 /* Phones and narrow panels */
 @media (max-width: 720px) {
-  .app-shell { --u: 6.6px; }
-  .app-shell > .screen { --u: 6.6px; padding-left: calc(var(--u)*2.4); padding-right: calc(var(--u)*2.4); }
+  .app-shell { --u: calc(6.6px * var(--hd-ui, 1)); }
+  .app-shell > .screen { --u: calc(6.6px * var(--hd-ui, 1)); padding-left: calc(var(--u)*2.4); padding-right: calc(var(--u)*2.4); }
   .app-shell .home-grid { flex: none; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(calc(var(--u)*22), auto); }
   .app-shell :is(.home-status, .room-operational-header) { flex-direction: column; align-items: stretch; }
   .app-shell :is(.home-status, .room-operational-header) > div:first-child { margin: 0; text-align: left; }

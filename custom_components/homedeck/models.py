@@ -16,6 +16,8 @@ class HomeDeckHeaderConfig(TypedDict):
     show_clock: bool
     show_weather: bool
     show_presence: bool
+    # A bell in the header with Home Assistant's own notifications.
+    ha_notifications: bool
     presence_people: list[str]
     badges: list[str]
 
@@ -35,6 +37,9 @@ class HomeDeckNavigationConfig(TypedDict):
     media: bool
     security: bool
     cameras: bool
+    # Pro: the floor plan page.
+    plan: bool
+    plan_title: NotRequired[str]
     order: NotRequired[list[str]]
 
 
@@ -182,8 +187,13 @@ class HomeDeckConfig(TypedDict):
     card_link_names: dict[str, dict[str, str]]
     # A device's name in one room only, when it shows in several: room screen to entity id to name.
     room_names: dict[str, dict[str, str]]
+    floorplan: dict[str, Any]
     ha_icons: bool
     ha_room_icons: bool
+    # Each room shows its scenes in a strip at the top instead of among its cards.
+    room_scenes: bool
+    # Each room shows its environment sensors (temperature, humidity, CO2...) at the top.
+    room_sensors: bool
     free_devices: list[str]
     free_rooms: list[str]
     view_mode: str
@@ -233,9 +243,14 @@ def default_config() -> HomeDeckConfig:
         "hidden_for": {},
         "bins": [],
         "card_link_names": {},
+        # Floor plan: room rectangles (grid units), device spots (fractions of their room) and hidden devices.
+        "floorplan": {"rooms": {}, "devices": {}, "hidden": [], "images": {}},
         "room_names": {},
         "ha_icons": False,
         "ha_room_icons": False,
+        "room_scenes": False,
+        "room_sensors": False,
+        "rooms_by_floor": False,
         "free_devices": [],
         "free_rooms": [],
         "view_mode": "grid",
@@ -248,6 +263,7 @@ def default_config() -> HomeDeckConfig:
             "show_clock": True,
             "show_weather": True,
             "show_presence": True,
+            "ha_notifications": False,
             "presence_people": [],
             "badges": [],
         },
@@ -261,6 +277,7 @@ def default_config() -> HomeDeckConfig:
             "media": True,
             "security": True,
             "cameras": False,
+            "plan": False,
         },
         "layout": {
             "density": "comfortable",
@@ -321,7 +338,8 @@ def default_config() -> HomeDeckConfig:
             "sparklines": False,
             "players": True,
         },
-        "widgets": {"weather": False, "sun": False, "energy": False, "bins": False},
+        "widgets": {"weather": False, "sun": False, "energy": False, "bins": False, "plan": False, "recent": False},
+        "recent_media": [],
         "energy": {key: "" for key in ENERGY_FIELDS},
         "doorbell": {"enabled": False, "trigger": "", "camera": "", "seconds": 60},
         "live_cameras": True,

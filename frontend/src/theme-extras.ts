@@ -77,7 +77,7 @@ export const themeExtras = String.raw`
 }
 
 /* Full-screen player */
-.app-shell .hd-player { --u: clamp(5px, min(.95vh, 1.8vw), 12px); position: fixed; inset: 0; z-index: 80; overflow: hidden; color: #fff; background: #121012; animation: hd-player-in .35s cubic-bezier(.2,.8,.2,1); }
+.app-shell .hd-player { --u: clamp(5px, min(calc(var(--hd-vh, 1vh)*.95), 1.8vw), 12px); position: fixed; inset: 0; z-index: 80; overflow: hidden; color: #fff; background: color-mix(in srgb, var(--ambient-4, #120f14) 40%, rgba(0,0,0,.3)); backdrop-filter: blur(32px) saturate(.9) brightness(.82); -webkit-backdrop-filter: blur(32px) saturate(.9) brightness(.82); animation: hd-player-in .35s cubic-bezier(.2,.8,.2,1); }
 @keyframes hd-player-in { from { opacity: 0; transform: translateY(3%); } }
 .app-shell .hd-player__bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .app-shell .hd-player__bg i { position: absolute; inset: -20%; background: radial-gradient(60% 50% at 30% 30%, var(--on, #c98a3a) 0, transparent 70%), radial-gradient(60% 60% at 75% 70%, #3a4d7a 0, transparent 70%), #1b1820; background-size: cover; background-position: center; filter: blur(80px) saturate(1.5) brightness(.7); transform: scale(1.15); }
@@ -89,7 +89,7 @@ export const themeExtras = String.raw`
 .app-shell .hd-player__scroll { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: none; padding: calc(var(--u)*6 + env(safe-area-inset-top, 0px)) calc(var(--u)*4) calc(var(--u)*4 + env(safe-area-inset-bottom, 0px)); }
 .app-shell .hd-player__wrap { margin: auto 0; width: min(100%, calc(var(--u)*62)); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u)*2.6); text-align: center; }
 .app-shell .hd-player__wrap > * { width: 100%; min-width: 0; }
-.app-shell .hd-player__art { width: min(34vh, 86vw, 560px); aspect-ratio: 1; border-radius: calc(var(--u)*3*var(--hd-r,1)); display: grid; place-items: center; color: rgba(255,255,255,.55); background: linear-gradient(135deg, #3a4d7a, #b5523f) center / cover no-repeat; box-shadow: 0 calc(var(--u)*3) calc(var(--u)*9) rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.12); transition: transform .45s cubic-bezier(.2,.8,.2,1); }
+.app-shell .hd-player__art { width: min(calc(var(--hd-vh, 1vh)*34), 86vw, 560px); aspect-ratio: 1; border-radius: calc(var(--u)*3*var(--hd-r,1)); display: grid; place-items: center; color: rgba(255,255,255,.55); background: linear-gradient(135deg, #3a4d7a, #b5523f) center / cover no-repeat; box-shadow: 0 calc(var(--u)*3) calc(var(--u)*9) rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.12); transition: transform .45s cubic-bezier(.2,.8,.2,1); }
 .app-shell .hd-player__art--paused { transform: scale(.92); }
 .app-shell .hd-player__source { display: inline-flex; align-items: center; justify-content: center; gap: calc(var(--u)*.8); font: 700 calc(var(--u)*1.5)/1 var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.62); }
 .app-shell .hd-player__source svg { color: #1ed760; }
@@ -177,16 +177,17 @@ export const themeExtras = String.raw`
    takes 30px off the bottom safe area (the home indicator). */
 @media (max-width: 720px) {
   .app-shell {
-    --dock-bottom: max(6px, calc(var(--u)*1.6 + env(safe-area-inset-bottom, 0px) - 30px));
-    --dock-height: calc(var(--u)*8.5);
+    /* A little higher and slimmer than before, closer to the other layouts' dock. */
+    --dock-bottom: max(10px, calc(var(--u)*1.6 + env(safe-area-inset-bottom, 0px) - 14px));
+    --dock-height: calc(var(--u)*7.2);
     --dock-side: calc(var(--u)*2.4 + env(safe-area-inset-right, 0px));
   }
   .app-shell .navigation-dock {
     left: calc(var(--u)*2.4 + env(safe-area-inset-left, 0px)); right: calc(var(--dock-side) + var(--dock-height) + var(--u)*1.2);
     transform: none; max-width: none; height: var(--dock-height); box-sizing: border-box; align-items: stretch; padding: calc(var(--u)*.6);
   }
-  .app-shell .navigation-dock button { height: auto; padding: 0 calc(var(--u)*2); font-size: calc(var(--u)*2.1); }
-  .app-shell .navigation-dock button svg { width: calc(var(--u)*3); height: calc(var(--u)*3); }
+  .app-shell .navigation-dock button { height: auto; padding: 0 calc(var(--u)*1.8); font-size: calc(var(--u)*1.95); }
+  .app-shell .navigation-dock button svg { width: calc(var(--u)*2.7); height: calc(var(--u)*2.7); }
   .app-shell .edit-fab { right: var(--dock-side); }
 }
 }
@@ -584,7 +585,14 @@ export const themeExtras = String.raw`
 /* The footer (light dots and temperature) stays in the left half too, so the devices never cover the temperature. */
 .app-shell .room-card:has(.hd-links) .room-card__footer { max-width: calc(50% - var(--u)*3.6); }
 /* Short cards (phones, sidebar layout) grow just enough for two devices below the power button. */
-.app-shell .room-card:has(.hd-links) { min-height: max(calc(var(--u)*13 + 48px), 100%); }
+.app-shell .room-card:has(.hd-links) { min-height: max(calc(var(--u)*11.4 + 48px), 100%); }
+/* Inside a room card the devices are a little more compact, so two of them fit under the power button in a normal row. */
+.app-shell .room-card__links { bottom: calc(var(--u)*1.4); }
+.app-shell .room-card__links .hd-links { gap: calc(var(--u)*.4); }
+.app-shell .room-card__links .hd-link { min-height: calc(var(--u)*3.4); }
+.app-shell .room-card__links .hd-link__buttons button { width: calc(var(--u)*3.4); height: calc(var(--u)*3.4); min-width: 26px; min-height: 26px; }
+/* On short screens the Home rows grow just enough for such a card, instead of the card spilling over the next row. */
+@media (min-width: 721px) { .app-shell .home-grid:not(.hd-grid--halves):has(.room-card .hd-links) { grid-auto-rows: minmax(max(calc(var(--u)*19), calc(var(--u)*11.4 + 48px)), 1fr); } }
 /* A large (4x) room card has the height to spare: the devices take the full width, above the name. */
 .app-shell .hd-item--tall .room-card .room-card__links { position: relative; left: auto; right: auto; bottom: auto; margin-top: auto; }
 .app-shell .hd-item--tall .room-card:has(.hd-links) .room-card__content { margin-top: calc(var(--u)*1.6); max-width: none; }
@@ -622,6 +630,8 @@ export const themeExtras = String.raw`
 .app-shell :is(.room-pane .device-grid, .collection-grid).hd-grid--halves { grid-auto-rows: minmax(calc(var(--u)*7.35), auto); }
 .app-shell .sb-grid.hd-grid--halves { grid-auto-rows: minmax(calc(var(--u)*7.6), auto); }
 @media (max-width: 720px) { .app-shell .home-grid.hd-grid--halves { grid-auto-rows: minmax(calc(var(--u)*10.1), auto); } }
+/* Phones (two columns): a half-height sensor takes the whole row, so its name and value are read in full. */
+@media (max-width: 720px) { .app-shell .hd-grid--halves > .hd-item--small { grid-column: 1 / -1; } }
 .app-shell .hd-item--small > .device-tile { height: 100%; min-height: 0; flex-direction: row; align-items: center; gap: calc(var(--u)*1.4); padding: calc(var(--u)*1.2) calc(var(--u)*1.6); }
 .app-shell .hd-item--small > .device-tile > .device-tile__top { min-height: 0; flex: none; }
 .app-shell .hd-item--small > .device-tile .device-tile__icon { width: calc(var(--u)*4.4); height: calc(var(--u)*4.4); }
@@ -857,13 +867,23 @@ export const themeExtras = String.raw`
   .app-shell .camera-grid .hd-item:is(.hd-item--c9, .hd-item--c16) { grid-column: span 2; grid-row: span 2; }
 }
 
-/* Home on tablets lying down (Echo Show, iPad, Fire...): always 6 columns, so every tablet shows Home the same
-   way, big touch screens such as an Echo Show 15 included. Phones keep 2; tablets standing up and computer
-   screens still fit as many as their width allows. */
-@media (min-width: 721px) and (max-width: 1440px) and (orientation: landscape), (min-width: 721px) and (orientation: landscape) and (pointer: coarse) {
-  .app-shell .home-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+/* Home columns by screen, the same on every device of a kind: tablets lying down (Echo Show 8, iPad, Fire...)
+   5; big screens lying down (Echo Show 15, 1441 px and up) 6 or more as they widen; phones lying down 3, or 4 on the wider ones.
+   Phones standing up keep 2; tablets standing up and computer windows still fit as many as their width allows. */
+@media (min-width: 721px) and (max-width: 1440px) and (orientation: landscape) and (min-height: 521px) {
+  .app-shell .home-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
-/* Widget labels beside their icon never run past the card (6 columns on tablets make them narrower). */
+@media (min-width: 1441px) and (orientation: landscape) {
+  /* At least 6, and more as the screen widens (cards of 240 px or more). */
+  .app-shell .home-grid { grid-template-columns: repeat(auto-fill, minmax(min(calc((100% - 5 * var(--u) * 1.8) / 6), 240px), 1fr)); }
+}
+@media (min-width: 560px) and (orientation: landscape) and (max-height: 520px) {
+  .app-shell .home-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 800px) and (orientation: landscape) and (max-height: 520px) {
+  .app-shell .home-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+/* Widget labels beside their icon never run past the card (several columns on tablets make them narrower). */
 .app-shell .widget-card__label { right: calc(var(--u)*1.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: .08em; }
 /* Settings: a reminder that this device has its own layout or background. */
 .app-shell .st-device-note { display: flex; align-items: center; gap: calc(var(--u)*1); margin: calc(var(--u)*1.6) 0 0; padding: calc(var(--u)*1.2) calc(var(--u)*1.6); border-radius: calc(var(--u)*1.6*var(--hd-r,1)); background: color-mix(in srgb, var(--on) 16%, transparent); color: var(--ink); font: 500 calc(var(--u)*1.7)/1.35 var(--f-body); }
@@ -881,20 +901,22 @@ export const themeExtras = String.raw`
 .hdx-select__option > span:not(.hdx-thumb) { flex: 1; min-width: 0; }
 
 /* Screensaver: room temperatures under the weather, and the large size for reading from across the room. */
-.app-shell .hd-saver__rooms { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px min(3.4vw, 34px); max-width: min(92vw, 900px); font: 500 min(3vw, 24px)/1.2 var(--f-body); }
+.app-shell .hd-saver__rooms { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px min(3.4vw, 34px); max-width: 96vw; font: 500 min(3vw, 24px)/1.2 var(--f-body); }
 .app-shell .hd-saver__rooms > span { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .app-shell .hd-saver__rooms > span > span { max-width: 14em; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
 .app-shell .hd-saver__rooms svg { opacity: .8; }
 .app-shell .hd-saver__rooms b { font-weight: 650; font-variant-numeric: tabular-nums; }
 /* Large: the clock stays, the weather and temperatures become big numbers with their names under them. */
 .app-shell .hd-saver--large .hd-saver__date { font-size: min(3.6vw, 32px); }
-.app-shell .hd-saver__stats { display: flex; flex-wrap: wrap; justify-content: center; gap: min(2.4vh, 20px) 0; max-width: min(94vw, 1100px); margin-top: min(2vh, 14px); }
+.app-shell .hd-saver__stats { display: flex; flex-wrap: wrap; justify-content: center; gap: min(2.4vh, 20px) 0; max-width: 96vw; margin-top: min(2vh, 14px); }
 .app-shell .hd-saver__stat { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; padding: 0 min(3.4vw, 40px); }
 .app-shell .hd-saver__stat + .hd-saver__stat { box-shadow: inset 1px 0 0 rgba(255,255,255,.2); }
 .app-shell .hd-saver__stat b { font: 300 min(8vw, 10vh, 84px)/.95 var(--f-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .app-shell .hd-saver__stat span { display: inline-flex; align-items: center; gap: 6px; max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 min(1.9vw, 16px)/1.2 var(--f-body); letter-spacing: .12em; text-transform: uppercase; opacity: .72; }
-.app-shell .hd-saver__stats--many .hd-saver__stat { flex: 0 0 25%; padding: 0 12px; }
-.app-shell .hd-saver__stats--many .hd-saver__stat:nth-child(4n + 1) { box-shadow: none; }
+/* Many readings: one line as long as the screen is wide enough, then the next; spaced instead of ruled, so a
+   wrapped line doesn't start with a separator. */
+.app-shell .hd-saver__stats--many { gap: min(2.4vh, 20px) min(3.6vw, 44px); }
+.app-shell .hd-saver__stats--many .hd-saver__stat { padding: 0; box-shadow: none; }
 .app-shell .hd-saver__stats--many .hd-saver__stat b { font-size: min(6.4vw, 8vh, 68px); }
 .app-shell .hd-saver--large:has(.hd-saver__stats--many) .hd-saver__time { font-size: min(24vw, 32vh, 220px); }
 .app-shell .hd-saver--large:has(.hd-saver__agenda) .hd-saver__time { font-size: min(20vw, 26vh, 200px); }
@@ -903,9 +925,12 @@ export const themeExtras = String.raw`
 /* Child lock: the header lock fills a ring while held, the note under the header, and a lock on the locked cards. */
 .app-shell .hd-child-lock { position: relative; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .app-shell .hd-child-lock--on { background: #f4edd9; color: #1b1712; }
-.app-shell .hd-child-lock__ring { position: absolute; inset: -3px; width: calc(100% + 6px); height: calc(100% + 6px); transform: rotate(-90deg); pointer-events: none; }
-.app-shell .hd-child-lock__ring circle { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; }
-.app-shell .hd-child-lock--holding .hd-child-lock__ring circle { opacity: .9; stroke-dashoffset: 0; transition: stroke-dashoffset 3s linear; }
+.app-shell .hd-child-lock__ring { position: absolute; inset: -1px; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .15s ease;
+  background: conic-gradient(var(--on, #ffd43b) calc(var(--hold, 0) * 1turn), transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px)); }
+.app-shell .hd-child-lock--holding .hd-child-lock__ring { opacity: 1; }
+.app-shell.view-kids .hd-child-lock__ring { inset: calc(var(--kid-edge, 3px) * -1); background: conic-gradient(#ffd43b calc(var(--hold, 0) * 1turn), transparent 0); }
 .app-shell .hd-lock-note { position: fixed; z-index: 60; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: var(--hd-pill, 99px); background: rgba(20,18,16,.88); color: #fff; font: 600 14px/1.3 var(--f-body); box-shadow: 0 8px 28px rgba(0,0,0,.35); backdrop-filter: blur(10px); animation: hd-lock-note .25s ease; pointer-events: none; }
 @keyframes hd-lock-note { from { opacity: 0; transform: translate(-50%, -8px); } }
 .app-shell .device-tile__lock { position: absolute; z-index: 2; right: calc(var(--u)*1.2); top: calc(var(--u)*1.2); display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(0,0,0,.45); color: #fff; pointer-events: none; }
@@ -948,4 +973,403 @@ export const themeExtras = String.raw`
 .hdx-select__none { padding: 12px; text-align: center; color: rgba(29,26,23,.5); }
 .app-shell.view-kids .hdx-select__search { background: #fffdf8; }
 .app-shell.view-kids .hd-picker__room { background: var(--kid-sheet, #fffdf8); }
+
+/* Waste bins: the value a bin reads (the state or an attribute), on its own line under the sensor. */
+.app-shell .st-bin__value { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: calc(var(--u)*1.2); padding-left: calc(var(--u)*.4); color: var(--ink-2); font: 500 calc(var(--u)*1.6)/1.2 var(--f-body); }
+
+/* A room's environment sensors: pills with the reading and, smaller, the sensor's name. */
+.app-shell .sensor-strip .hd-item > button:first-child { gap: calc(var(--u)*.9); }
+.app-shell .sensor-strip button > span { display: inline-flex; align-items: baseline; gap: calc(var(--u)*.7); min-width: 0; }
+.app-shell .sensor-strip button b { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.app-shell .sensor-strip button small { max-width: 11em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82em; opacity: .7; }
+
+/* Shortcut bar of this device (Settings → This device): a black strip at the very bottom, 9 equal parts.
+   The dock and the Edit button sit above it, or the dock hides when the device asks for that. */
+.app-shell .hd-keybar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2147483000; height: 30px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); align-items: center; background: #000; padding-bottom: env(safe-area-inset-bottom, 0px); box-sizing: content-box; }
+.app-shell .hd-keybar button { grid-row: 1; height: 30px; min-width: 0; padding: 0 2px; border: 0; background: none; color: #fff; font: 700 13px/30px var(--f-body); letter-spacing: .14em; text-transform: uppercase; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.app-shell .hd-keybar button:active { background: rgba(255,255,255,.18); }
+.app-shell .hd-keybar button:disabled { cursor: default; opacity: .55; }
+.app-shell.has-keybar { --dock-bottom: calc(30px + env(safe-area-inset-bottom, 0px) + var(--u)*1.6); }
+.app-shell.keybar-nodock .navigation-dock { display: none; }
+
+.app-shell .st-keybar { display: grid; grid-template-columns: calc(var(--u)*3) minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: calc(var(--u)*.8); padding: calc(var(--u)*.5) 0; }
+.app-shell .st-keybar__n { color: var(--ink-3); font: 700 calc(var(--u)*1.6)/1 var(--f-body); text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) { .app-shell .st-keybar { grid-template-columns: calc(var(--u)*3) minmax(0, 1fr); } .app-shell .st-keybar > :last-child { grid-column: 2; } }
+
+/* Home Assistant notifications: the bell with a count, and the list sheet. */
+.app-shell .hd-bell { position: relative; }
+.app-shell .hd-bell__dot { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 99px; display: grid; place-items: center; background: #ff6b5e; color: #fff; font: 700 11px/1 var(--f-body); font-style: normal; box-shadow: 0 0 0 2px rgba(0,0,0,.25); }
+.app-shell .hd-notes__list { display: flex; flex-direction: column; gap: calc(var(--u)*1.2); }
+.app-shell .hd-notes__item { display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--u)*.9); padding: calc(var(--u)*1.6); border-radius: calc(var(--u)*2*var(--hd-r,1)); background: rgba(255,255,255,.07); }
+.app-shell .hd-notes__head { display: flex; align-items: baseline; justify-content: space-between; gap: calc(var(--u)*1.2); width: 100%; }
+.app-shell .hd-notes__head b { font: 600 calc(var(--u)*1.9)/1.25 var(--f-body); }
+.app-shell .hd-notes__head small { flex: none; color: var(--ink-3); font: 500 calc(var(--u)*1.45)/1 var(--f-body); }
+.app-shell .hd-notes__text { width: 100%; margin: 0; color: var(--ink-2); font: 500 calc(var(--u)*1.65)/1.45 var(--f-body); overflow-wrap: anywhere; }
+.app-shell .hd-notes__text--plain { white-space: pre-wrap; }
+.app-shell .hd-notes__text a { color: var(--on); }
+.app-shell .hd-notes__empty { margin: 0; color: var(--ink-2); text-align: center; padding: calc(var(--u)*2) 0; }
+.app-shell .hd-notes__all { align-self: center; }
+
+/* Security alerts list: a short sheet (the picker's rows), each alert marked and opening its details. */
+@media (min-width: 760px) { .app-shell .hd-sheet.hd-picker.hd-alerts { width: min(560px, calc(100vw - 64px)); height: auto; max-height: min(640px, calc(100vh - 64px)); } }
+@media (max-width: 759px) { .app-shell .hd-sheet.hd-picker.hd-alerts { height: auto; max-height: calc(100dvh - 40px); } }
+.app-shell .hd-alerts .hd-picker__rows { grid-template-columns: minmax(0, 1fr); }
+.app-shell .hd-alerts__row .hd-picker__icon { background: rgba(255,107,94,.22); color: #ffb0a8; }
+.app-shell .hd-alerts__row > svg { transform: rotate(-90deg); opacity: .6; }
+
+/* Forecast: where it is for (the weather entity's name, e.g. the home or the city) under the title. */
+.app-shell .hd-forecast__place { margin: calc(var(--u)*.4) 0 0; color: var(--ink-2); font: 500 calc(var(--u)*1.6)/1.2 var(--f-body); }
+
+/* Floor plan (Pro). The screen fits the window: the plan takes what the header and the dock leave. */
+.app-shell .fp-screen { height: calc(var(--hd-vh, 1vh) * 100); min-height: 0; box-sizing: border-box; overflow: hidden; }
+.app-shell .fp { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: calc(var(--u)*1.2); }
+.app-shell .sb-main .fp { height: calc(var(--hd-vh, 1vh) * 100 - var(--u)*22); }
+.app-shell .fp-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: calc(var(--u)*1); }
+.app-shell .fp-bar:empty { display: none; }
+.app-shell .fp-tools { display: flex; flex-wrap: wrap; gap: calc(var(--u)*.8); margin-left: auto; }
+.app-shell .fp-stage { flex: 1 1 auto; min-height: calc(var(--u)*30); display: grid; place-items: center; position: relative; }
+.app-shell .fp-canvas { position: relative; touch-action: none; }
+.app-shell .fp-room { position: absolute; box-sizing: border-box; padding: calc(var(--fp-unit)*.32) calc(var(--fp-unit)*.4); --fp-wall: rgba(255,255,255,.26); }
+.app-shell .fp-room::before { content: ""; position: absolute; inset: 2px; border-radius: calc(var(--fp-unit)*.3*var(--hd-r,1)); border: 1.5px solid var(--fp-wall); background: rgba(255,255,255,.035); transition: background .6s ease, border-color .4s ease, box-shadow .6s ease; pointer-events: none; }
+.app-shell .fp-room--lit::before { background: radial-gradient(ellipse at 50% 55%, rgba(255,196,110, calc(.12 + .30 * var(--fp-glow))), rgba(255,196,110, calc(.03 + .08 * var(--fp-glow))) 70%); border-color: rgba(255,214,150, calc(.35 + .4 * var(--fp-glow))); box-shadow: 0 0 calc(var(--fp-unit)*1.2) rgba(255,190,90, calc(.08 + .22 * var(--fp-glow))); }
+.app-shell .fp-room--open { --fp-wall: rgba(255,107,94,.85); }
+.app-shell .fp-room--motion::after { content: ""; position: absolute; inset: 2px; border-radius: calc(var(--fp-unit)*.3*var(--hd-r,1)); box-shadow: inset 0 0 0 2px rgba(120,200,255,.6); animation: fp-motion 2.2s ease-in-out infinite; pointer-events: none; }
+@keyframes fp-motion { 50% { box-shadow: inset 0 0 0 2px rgba(120,200,255,.1); } }
+.app-shell .fp-room__head { position: relative; z-index: 1; display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
+.app-shell .fp-room__head > span:first-child { min-width: 0; color: var(--ink); font: 600 clamp(11px, calc(var(--fp-unit)*.5), 16px)/1.2 var(--f-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .fp-room__temp { flex: none; color: var(--ink-2); font: 500 clamp(10px, calc(var(--fp-unit)*.45), 15px)/1 var(--f-body); font-variant-numeric: tabular-nums; }
+.app-shell .fp-spot { position: absolute; z-index: 2; translate: -50% -50%; width: clamp(28px, calc(var(--fp-unit)*1.35), 46px); height: clamp(28px, calc(var(--fp-unit)*1.35), 46px); padding: 0; display: grid; place-items: center; border: 0; border-radius: var(--hd-round, 50%); background: rgba(255,255,255,.12); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); cursor: pointer; transition: background .3s, box-shadow .3s, transform .15s; -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; }
+.app-shell .fp-spot:active { transform: scale(.9); }
+.app-shell .fp-spot svg { width: 55%; height: 55%; }
+.app-shell .fp-spot--on { background: var(--on); color: var(--on-ink, #2a2110); box-shadow: 0 0 calc(var(--fp-unit)*.9) color-mix(in srgb, var(--on) 60%, transparent); }
+.app-shell .fp-spot--alert { background: #ff6b5e; color: #fff; box-shadow: 0 0 calc(var(--fp-unit)*.9) rgba(255,107,94,.6); }
+.app-shell .fp-spot--motion { background: rgba(120,200,255,.35); animation: fp-pulse 1.6s ease-in-out infinite; }
+@keyframes fp-pulse { 50% { box-shadow: 0 0 0 calc(var(--fp-unit)*.4) rgba(120,200,255,0), inset 0 0 0 1px rgba(255,255,255,.14); } 0%, 100% { box-shadow: 0 0 0 0 rgba(120,200,255,.5), inset 0 0 0 1px rgba(255,255,255,.14); } }
+.app-shell .fp-spot--na { opacity: .4; }
+.app-shell .fp--editing .fp-room { cursor: move; }
+.app-shell .fp--editing .fp-room::before { border-style: dashed; }
+.app-shell .fp--editing .fp-spot { cursor: grab; }
+.app-shell .fp-spot--hidden { opacity: .35; outline: 1.5px dashed rgba(255,255,255,.5); outline-offset: 2px; }
+.app-shell .fp-spot__hide { position: absolute; top: -7px; right: -7px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: #ff6b5e; color: #fff; font: 700 13px/1 var(--f-body); font-style: normal; box-shadow: 0 1px 4px rgba(0,0,0,.4); cursor: pointer; }
+.app-shell .fp-spot--hidden .fp-spot__hide { background: #3fb68b; }
+.app-shell .fp-room__resize { position: absolute; z-index: 3; right: 0; bottom: 0; width: 22px; height: 22px; cursor: nwse-resize; touch-action: none; }
+.app-shell .fp-room__resize::after { content: ""; position: absolute; right: 6px; bottom: 6px; width: 9px; height: 9px; border-right: 2.5px solid var(--ink); border-bottom: 2.5px solid var(--ink); border-radius: 0 0 3px 0; opacity: .8; }
+.app-shell .fp-room__resize--start { right: auto; bottom: auto; left: 0; top: 0; }
+.app-shell .fp-room__resize--start::after { right: auto; bottom: auto; left: 6px; top: 6px; border: 0; border-left: 2.5px solid var(--ink); border-top: 2.5px solid var(--ink); border-radius: 3px 0 0 0; }
+/* Kids layout: paper rooms with a dark outline. */
+.app-shell.view-kids .fp-room { --fp-wall: var(--kid-dark, #231b3d); }
+.app-shell.view-kids .fp-room::before { border-width: 3px; background: rgba(255,255,255,.55); }
+.app-shell.view-kids .fp-room--lit::before { background: radial-gradient(ellipse at 50% 55%, rgba(255,214,107, calc(.45 + .4 * var(--fp-glow))), rgba(255,240,200,.6) 75%); border-color: var(--kid-dark, #231b3d); }
+.app-shell.view-kids .fp-room__head > span { color: var(--kid-dark, #231b3d); }
+.app-shell.view-kids .fp-spot { background: #fffdf8; color: var(--kid-dark, #231b3d); box-shadow: 0 0 0 2px var(--kid-dark, #231b3d), 0 2px 0 2px rgba(35,27,61,.42); }
+.app-shell.view-kids .fp-spot--on { background: #ffd43b; }
+
+/* Floor plan with a background image: the image under the rooms, rooms without walls (dashed in Edit
+   mode), the glow kept soft over the drawing. */
+.app-shell .fp-image { position: absolute; left: 0; top: 0; z-index: 0; object-fit: fill; border-radius: calc(var(--fp-unit)*.25); pointer-events: none; user-select: none; -webkit-user-select: none; }
+.app-shell .fp--image .fp-room::before { background: transparent; border-color: transparent; }
+.app-shell .fp--image .fp-room--lit::before { background: radial-gradient(ellipse at 50% 55%, rgba(255,196,110, calc(.18 + .30 * var(--fp-glow))), rgba(255,196,110,.04) 72%); border-color: transparent; box-shadow: none; }
+.app-shell .fp--image .fp-room--open::before { border-color: rgba(255,107,94,.9); }
+.app-shell .fp--image.fp--editing .fp-room::before { border-color: rgba(255,255,255,.7); background: rgba(0,0,0,.12); }
+.app-shell .fp--image .fp-room__head > span { padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.55); color: #fff; }
+.app-shell .fp-image-panel { display: flex; flex-direction: column; gap: calc(var(--u)*.8); padding: calc(var(--u)*1.2) calc(var(--u)*1.4); border-radius: calc(var(--u)*1.8*var(--hd-r,1)); background: rgba(255,255,255,.06); }
+.app-shell .fp-image-panel p { margin: 0; color: var(--ink-2); font: 500 calc(var(--u)*1.55)/1.4 var(--f-body); }
+.app-shell .fp-image-panel__row { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--u)*.8); }
+.app-shell .fp-image-panel__opacity { display: inline-flex; align-items: center; gap: calc(var(--u)*.8); color: var(--ink-2); font: 600 calc(var(--u)*1.5)/1 var(--f-body); }
+.app-shell .fp-image-panel__opacity input { width: calc(var(--u)*16); accent-color: var(--on); }
+.app-shell .fp-image-panel__error { color: #ffb0a8 !important; }
+/* 3D: the plan tilted back like a model on a table; rooms rise as low walls, devices stand facing you. */
+.app-shell .fp-3d-toggle--on { background: var(--on); color: var(--on-ink, #2a2110); border-color: transparent; }
+.app-shell .fp--3d .fp-stage { perspective: 1800px; perspective-origin: 50% 30%; }
+.app-shell .fp--3d .fp-canvas { transform-style: preserve-3d; }
+.app-shell .fp--moving .fp-canvas { transition: none; }
+.app-shell .fp-stage { touch-action: none; overflow: hidden; }
+.app-shell .fp--3d .fp-stage { cursor: grab; }
+.app-shell .fp--3d.fp--moving .fp-stage { cursor: grabbing; }
+.app-shell .fp-canvas { transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.app-shell .fp--3d .fp-room { transform-style: preserve-3d; }
+.app-shell .fp--3d .fp-room::after { content: ""; position: absolute; inset: 2px; border-radius: calc(var(--fp-unit)*.3*var(--hd-r,1)); border: 1.5px solid var(--fp-wall); transform: translateZ(calc(var(--fp-unit)*1.1)); pointer-events: none; }
+.app-shell .fp--3d .fp-room--lit::after { border-color: rgba(255,214,150,.75); box-shadow: 0 0 calc(var(--fp-unit)*1.4) rgba(255,190,90,.35); }
+.app-shell .fp--3d .fp-room::before { box-shadow: 0 0 0 1px var(--fp-wall), 0 calc(var(--fp-unit)*.3) calc(var(--fp-unit)*1.2) rgba(0,0,0,.35); }
+.app-shell .fp--3d .fp-spot { transform: translateZ(calc(var(--fp-unit)*.9)) rotateZ(calc(var(--fp-rz) * -1)) rotateX(calc(var(--fp-rx) * -1)); }
+.app-shell .fp--3d .fp-room__head { transform: translateZ(calc(var(--fp-unit)*1.15)); }
+.app-shell .fp--3d.fp--image .fp-room::after { border-color: transparent; }
+.app-shell .fp--3d .fp-image { box-shadow: 0 calc(var(--fp-unit)*1.4) calc(var(--fp-unit)*3) rgba(0,0,0,.45); }
+@media (prefers-reduced-motion: reduce) { .app-shell .fp-canvas { transition: none; } }
+
+/* Floor plan card on Home: the plan fills the card between its label and its line. */
+.app-shell .fp-card { display: flex; flex-direction: column; }
+.app-shell .fp-card__plan { position: relative; display: grid; place-items: center; flex: 1 1 auto; min-height: calc(var(--u)*8); margin: calc(var(--u)*.4) 0; }
+.app-shell .fp-card__box { position: relative; display: block; }
+.app-shell .fp-card .fp-room { position: absolute; display: block; padding: 0; }
+.app-shell .fp-card .fp-room::before { inset: 1.5px; border-radius: 4px; border-width: 1px; }
+.app-shell .fp-card p { margin: 0; }
+
+/* Sensors on the plan: a pill with their reading. Plan screen: no title, the plan takes the room left. */
+.app-shell .fp-spot--reading { width: auto; min-width: clamp(28px, calc(var(--fp-unit)*1.35), 46px); padding: 0 clamp(6px, calc(var(--fp-unit)*.2), 10px); gap: 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--hd-pill, 99px); }
+.app-shell .fp-spot--reading svg { width: 14px; height: 14px; flex: none; opacity: .8; }
+.app-shell .fp-spot--reading b { font: 650 clamp(10px, calc(var(--fp-unit)*.38), 14px)/1 var(--f-body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.app-shell .fp-screen .fp { gap: calc(var(--u)*.8); }
+.app-shell .fp-screen .context-header { margin-bottom: 0; }
+
+/* Edit mode: each device's name under its spot, to know what is being placed. */
+.app-shell .fp-spot__label { position: absolute; left: 50%; top: calc(100% + 3px); translate: -50% 0; max-width: calc(var(--fp-unit)*4.5); padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.72); color: #fff; font: 600 10.5px/1.25 var(--f-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; z-index: 3; }
+.app-shell.view-kids .fp-spot__label { background: var(--kid-dark, #231b3d); }
+
+/* Plan controls float over the plan's top left corner, so the plan gets the whole screen. */
+.app-shell .fp { position: relative; }
+.app-shell .fp-overlay { position: absolute; z-index: 6; top: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--u)*.8); pointer-events: none; }
+.app-shell .fp-overlay > * { pointer-events: auto; }
+.app-shell .fp-overlay .fp-bar { justify-content: flex-start; }
+.app-shell .fp-overlay .fp-tools { margin-left: 0; }
+.app-shell .fp-overlay .fp-image-panel { max-width: min(560px, 100%); background: rgba(20,18,16,.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.app-shell .fp-confirm { background: #ff6b5e; color: #fff; border-color: transparent; }
+/* With a background image the drawing is the plan: no room boxes, outlines, walls or glow outside Edit mode. */
+.app-shell .fp--image:not(.fp--editing) .fp-room::before, .app-shell .fp--image:not(.fp--editing) .fp-room::after { content: none; }
+.app-shell .fp--3d .fp-image { box-shadow: none; }
+
+/* Floor plan card: only the plan, as large as the card allows, with the lights that are on glowing. */
+.app-shell .fp-card__plan { margin: calc(var(--u)*.8) 0 0; min-height: 0; }
+.app-shell .fp-card--image .fp-room::before { border-color: transparent; background: transparent; }
+.app-shell .fp-card--image .fp-room--lit::before { background: radial-gradient(ellipse at 50% 55%, rgba(255,196,110, calc(.16 + .26 * var(--fp-glow))), rgba(255,196,110,.03) 72%); box-shadow: none; }
+.app-shell .fp-card__light { position: absolute; z-index: 1; translate: -50% -50%; width: 9px; height: 9px; border-radius: 50%; background: #ffd27a; box-shadow: 0 0 6px 2px rgba(255,200,110,.85), 0 0 18px 6px rgba(255,190,90,.35); }
+
+/* Plan spots: icons exactly in the middle of their circle, Home Assistant's own icons included (they
+   otherwise sit on the text line and drift down or sideways). */
+.app-shell .fp-spot { line-height: 0; }
+.app-shell .fp-spot :is(ha-state-icon, ha-icon) { display: flex !important; align-items: center; justify-content: center; --ha-icon-display: block; line-height: 0; }
+.app-shell .fp-spot:not(.fp-spot--reading) :is(ha-state-icon, ha-icon) { width: 55% !important; height: 55% !important; --mdc-icon-size: 100%; }
+.app-shell .fp-spot svg { display: block; }
+.app-shell .fp-spot--reading :is(ha-state-icon, ha-icon) { width: 14px !important; height: 14px !important; --mdc-icon-size: 14px; flex: none; }
+
+/* The shortcut bar stays on top of everything (screensaver, sheets, doorbell, Settings); full-screen layers
+   end right above it, so nothing is hidden under the bar. */
+.app-shell.has-keybar :is(.hd-saver, .hd-sheet-backdrop, .weather-modal, .entity-modal, .hdx-select__backdrop, .hd-doorbell, .hd-cal) { bottom: calc(30px + env(safe-area-inset-bottom, 0px)); }
+.app-shell.has-keybar .hdx-select__list--sheet { bottom: calc(30px + env(safe-area-inset-bottom, 0px)); }
+.app-shell.has-keybar .settings-v2 { padding-bottom: calc(30px + env(safe-area-inset-bottom, 0px)); }
+
+/* Floor plan card: the plan fills the card from just under its label (see PlanWidget), top-aligned. */
+.app-shell .fp-card { position: relative; }
+.app-shell .fp-card .fp-card__plan { position: absolute; left: calc(var(--u)*1.7); right: calc(var(--u)*1.7); bottom: calc(var(--u)*1.7); top: calc(var(--u)*7.8); margin: 0; place-items: center; }
+
+/* No icon on the floor plan card: its label sits in the corner, as far from the top as from the side. */
+.app-shell .fp-card .widget-card__label { position: absolute; left: calc(var(--u)*1.7); right: calc(var(--u)*1.7); top: calc(var(--u)*1.7); margin: 0; }
+
+/* Interface transitions (Settings → This device → Animations → Transitions and effects).
+   Tab pill: slides behind the tabs to the one chosen. */
+.app-shell .navigation-dock__pill { display: none; }
+.app-shell.hd-motion:not(.view-kids) .navigation-dock__pill { display: block; position: absolute; z-index: 0; border-radius: var(--hd-pill, 99px); background: rgba(255,255,255,.92); box-shadow: 0 6px 18px rgba(0,0,0,.2); pointer-events: none; transition: left .45s cubic-bezier(.3,1.25,.4,1), width .45s cubic-bezier(.3,1.25,.4,1), top .3s ease, height .3s ease; }
+.app-shell.hd-motion:not(.view-kids) .navigation-dock button { position: relative; z-index: 1; transition: color .3s ease, transform .2s ease; }
+.app-shell.hd-motion:not(.view-kids) .navigation-dock button.navigation-dock__active { background: transparent; }
+.app-shell.hd-motion .navigation-dock button:active { transform: scale(.94); }
+/* Pages fade and rise in; a room's content slides in when another room is chosen. */
+@keyframes hd-page-in { from { opacity: 0; transform: translateY(14px); } }
+@keyframes hd-pane-in { from { opacity: 0; transform: translateX(18px); } }
+/* The header (clock, weather, people) is the same on every page: it stays put while the rest arrives. */
+.app-shell.hd-motion > .screen > :not(.context-header, .navigation-dock) { animation: hd-page-in .48s cubic-bezier(.2,.8,.2,1) both; }
+.app-shell.hd-motion .room-pane { animation: hd-pane-in .42s cubic-bezier(.2,.8,.2,1) both; }
+.app-shell.hd-motion .sb-main > :not(.context-header) { animation: hd-pane-in .42s cubic-bezier(.2,.8,.2,1) both; }
+/* Cards arrive one after another. */
+@keyframes hd-item-in { from { opacity: 0; transform: translateY(12px) scale(.96); } }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item { animation: hd-item-in .52s cubic-bezier(.2,.85,.25,1) both; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(1) { animation-delay: 0ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(2) { animation-delay: 24ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(3) { animation-delay: 48ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(4) { animation-delay: 72ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(5) { animation-delay: 96ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(6) { animation-delay: 120ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(7) { animation-delay: 144ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(8) { animation-delay: 168ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(9) { animation-delay: 192ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(10) { animation-delay: 216ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(11) { animation-delay: 240ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(12) { animation-delay: 264ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(13) { animation-delay: 288ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(14) { animation-delay: 312ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(15) { animation-delay: 336ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(16) { animation-delay: 360ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(17) { animation-delay: 384ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(18) { animation-delay: 408ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(19) { animation-delay: 432ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(20) { animation-delay: 456ms; }
+.app-shell.hd-motion:not(.view-kids) .screen:not(.screen--editing) .hd-item:nth-child(n+21) { animation-delay: 480ms; }
+/* Sheets and windows spring open; on phones they rise from the bottom. */
+@keyframes hd-sheet-pop { from { opacity: 0; transform: translateY(22px) scale(.95); } 60% { opacity: 1; } }
+@keyframes hd-sheet-up { from { transform: translateY(100%); } }
+@keyframes hd-veil { from { opacity: 0; backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); } }
+.app-shell.hd-motion:not(.view-kids) :is(.hd-sheet, .weather-modal__panel) { animation: hd-sheet-pop .46s cubic-bezier(.2,.95,.25,1.06) both; }
+.app-shell.hd-motion :is(.hd-sheet-backdrop, .weather-modal) { animation: hd-veil .3s ease both; }
+@media (max-width: 720px) { .app-shell.hd-motion:not(.view-kids) .hd-sheet { animation: hd-sheet-up .42s cubic-bezier(.2,.9,.25,1) both; } }
+.app-shell.hd-motion .hdx-select__list:not(.hdx-select__list--sheet) { animation: hdx-pop .2s cubic-bezier(.2,.9,.25,1.1); }
+/* Controls answer the finger. */
+.app-shell.hd-motion :is(.hd-pill, .round-action, .weather-chip, .room-actions > button, .global-actions > button) { transition: transform .18s ease, background .25s ease, color .25s ease, box-shadow .25s ease; }
+.app-shell.hd-motion :is(.hd-pill, .round-action, .weather-chip, .room-actions > button, .global-actions > button):active { transform: scale(.95); }
+/* Off: no entrance or opening animations at all, for slow devices. */
+.app-shell:not(.hd-motion) :is(.screen, .room-pane, .sb-main, .hd-item, .hd-sheet, .hd-sheet-backdrop, .weather-modal, .weather-modal__panel, .hd-cal, .hdx-select__list, .hdx-select__backdrop, .hd-saver, .hd-detail) { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .app-shell.hd-motion :is(.screen, .room-pane, .sb-main, .hd-item, .hd-sheet, .weather-modal__panel) { animation: none !important; }
+  .app-shell.hd-motion .navigation-dock__pill { transition: none; }
+}
+
+/* Settings → This device: its choices grouped under small headings. */
+.app-shell .st-category { margin: calc(var(--u)*2.6) 0 calc(var(--u)*.4); padding-top: calc(var(--u)*1.6); border-top: 1px solid var(--line, rgba(255,255,255,.12)); color: var(--ink-3); font: 700 calc(var(--u)*1.35)/1.2 var(--f-body); letter-spacing: .14em; text-transform: uppercase; }
+.app-shell .st-panel > p + .st-category, .app-shell .st-panel > h2 + .st-category { border-top: 0; padding-top: 0; margin-top: calc(var(--u)*1.2); }
+
+/* Kids layout: the lock on a locked card is a little white bubble with the dark outline, like its icons. */
+.app-shell.view-kids .device-tile__lock { width: calc(var(--u)*3.4); height: calc(var(--u)*3.4); background: #fffdf8; color: var(--kid-dark, #231b3d); border: var(--kid-edge, 2px) solid var(--kid-dark, #231b3d); box-shadow: 0 calc(var(--u)*.3) 0 var(--kid-shadow); }
+.app-shell.view-kids .device-tile:has(.device-tile__lock) > :not(.device-tile__lock) { opacity: .6; }
+
+/* Settings save themselves: a quiet note in the header instead of a Save button. */
+.app-shell .st-saved { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font: 600 calc(var(--u)*1.5)/1.2 var(--f-body); white-space: nowrap; }
+.app-shell .st-saved svg { color: #5fd38d; }
+.app-shell .st-saved--failed { color: #ffb0a8; }
+
+/* Air conditioner, small card: the target temperature sits in the top right corner (across from the icon),
+   so the card keeps the size of the others; − and + stay at the bottom. */
+.app-shell .device-tile:not(.device-tile--wide) > .climate-quick-control > span { position: absolute; top: calc(var(--u)*2); right: calc(var(--u)*2); line-height: 1; }
+
+/* Settings, one look for every panel: the same title and text sizes, and every field (text box, list,
+   button) the same height, type, corners and frame. */
+.app-shell .settings-v2 .st-panel { gap: calc(var(--u)*1.4); }
+.app-shell .settings-v2 .st-panel h2 { margin: 0; font: 600 calc(var(--u)*2.2)/1.2 var(--f-body); }
+.app-shell .settings-v2 .st-panel > p { margin: calc(var(--u)*-.6) 0 calc(var(--u)*.4); color: var(--ink-2); font: 500 calc(var(--u)*1.65)/1.4 var(--f-body); }
+.app-shell .settings-v2 .st-panel h3:not(.st-category) { margin: calc(var(--u)*1) 0 0; font: 600 calc(var(--u)*1.9)/1.25 var(--f-body); }
+.app-shell .settings-v2 :is(.st-row small, .st-sub p, .st-device-note) { font-size: calc(var(--u)*1.55); line-height: 1.4; }
+.app-shell .settings-v2 .st-row b, .app-shell .settings-v2 .st-sub__row > span:first-child { font: 600 calc(var(--u)*1.85)/1.25 var(--f-body); }
+.app-shell .settings-v2 :is(.hdx-select, .st-input, .st-input--framed) { box-sizing: border-box; height: calc(var(--u)*4.8); min-height: calc(var(--u)*4.8); border-radius: calc(var(--u)*1.4*var(--hd-r,1)); border: 1px solid rgba(255,255,255,.24); background: rgba(255,255,255,.08); color: var(--ink); font: 600 calc(var(--u)*1.75)/1.2 var(--f-body); }
+.app-shell .settings-v2 .st-input { padding: 0 calc(var(--u)*1.4); font-weight: 500; }
+.app-shell .settings-v2 .st-input:focus { outline: none; border-color: rgba(255,255,255,.6); background: rgba(255,255,255,.12); }
+.app-shell .settings-v2 .st-input::placeholder { color: var(--ink-3); }
+.app-shell .settings-v2 .hdx-select { padding: 0 calc(var(--u)*1.4) 0 calc(var(--u)*1.6); }
+.app-shell .settings-v2 .hd-pill { min-height: calc(var(--u)*4.4); font: 600 calc(var(--u)*1.65)/1 var(--f-body); }
+.app-shell .settings-v2 .st-sub { gap: 0; }
+.app-shell .settings-v2 .st-sub__row { min-height: calc(var(--u)*5.6); padding: calc(var(--u)*.6) 0; }
+.app-shell.view-kids .settings-v2 :is(.hdx-select, .st-input, .st-input--framed) { background: #fff; color: var(--kid-dark); border: var(--kid-edge) solid var(--kid-dark); }
+
+/* Many readings on the screensaver: two rows split evenly (4 + 4, 4 + 3), each reading in an equal column,
+   the second row centered under the first. */
+.app-shell .hd-saver__stats--many { display: flex; flex-wrap: wrap; justify-content: center; gap: min(2.4vh, 20px) 0; width: min(96vw, calc(var(--saver-cols, 4) * min(23vw, 250px))); }
+.app-shell .hd-saver__stats--many .hd-saver__stat { flex: 0 0 calc(100% / var(--saver-cols, 4)); padding: 0 8px; box-sizing: border-box; box-shadow: none; }
+.app-shell .hd-saver__rooms--many { display: grid; grid-template-columns: repeat(var(--saver-cols, 4), auto); justify-content: center; justify-items: center; }
+/* List card: a title, then one line per entity (value or control); long lists scroll inside the card. */
+.app-shell .hd-elist { justify-content: flex-start; gap: calc(var(--u)*1); height: 100%; min-height: 0; box-sizing: border-box; cursor: default; }
+.app-shell .hd-elist__title { flex: none; font: 750 calc(var(--u)*1.25)/1.2 var(--f-body); letter-spacing: .12em; text-transform: uppercase; opacity: .6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .hd-elist__empty { margin: 0; font-size: calc(var(--u)*1.5); opacity: .6; }
+.app-shell .hd-elist__rows { flex: 1 1 auto; min-height: 0; display: grid; align-content: start; gap: calc(var(--u)*.3); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; margin: 0 calc(var(--u)*-.6); }
+.app-shell .hd-elist__rows::-webkit-scrollbar { display: none; }
+.app-shell .hd-elist__row { display: flex; align-items: center; gap: calc(var(--u)*.9); min-width: 0; min-height: calc(var(--u)*4); padding: 0 calc(var(--u)*.6); border: 0; border-radius: calc(12px*var(--hd-r,1)); background: none; color: inherit; font: inherit; text-align: left; }
+.app-shell .hd-elist__row > .hd-link { flex: 1 1 auto; min-height: calc(var(--u)*4); }
+.app-shell .hd-elist__row--value { cursor: pointer; justify-content: space-between; }
+.app-shell .hd-elist__row--value .hd-link__name { flex: 1 1 auto; }
+.app-shell .hd-elist__row--value:hover, .app-shell .hd-elist__row--value:focus-visible { background: color-mix(in srgb, currentColor 8%, transparent); }
+.app-shell .hd-elist__icon { flex: none; display: grid; place-items: center; width: calc(var(--u)*2.6); height: calc(var(--u)*2.6); padding: 0; border: 0; background: none; color: inherit; opacity: .75; cursor: pointer; }
+.app-shell .hd-elist__row + .hd-elist__row { box-shadow: 0 -1px 0 color-mix(in srgb, currentColor 9%, transparent); }
+.app-shell .hd-elist__row .hd-link__run { height: calc(var(--u)*3.6); justify-content: space-between; padding: 0 calc(var(--u)*.4) 0 0; background: none; color: inherit; font-weight: 600; }
+.app-shell .hd-elist__row .hd-link__run svg { order: 2; flex: none; width: calc(var(--u)*3.4); height: calc(var(--u)*3.4); padding: calc(var(--u)*.9); box-sizing: border-box; border-radius: var(--hd-round,50%); background: color-mix(in srgb, currentColor 14%, transparent); }
+.app-shell .hd-elist--editing .hd-elist__rows { pointer-events: none; }
+.app-shell .hd-elist-editor__item input { flex: 1 1 auto; min-width: 0; }
+.app-shell .hd-elist-editor__item button:not(:last-child) { background: rgba(255,255,255,.14); }
+.app-shell .hd-elist-editor__item button:disabled { opacity: .35; cursor: default; }
+.app-shell .hd-add-tile--list > svg { margin-left: 4px; opacity: .6; }
+/* Alarm buttons on its card and on Home's Security card (an option of the alarm panel). */
+.app-shell .hd-alarm-buttons { display: flex; flex-wrap: wrap; gap: calc(var(--u)*.6); margin-top: calc(var(--u)*1); }
+.app-shell .hd-alarm-buttons button { flex: 1 1 0; min-width: 0; height: calc(var(--u)*4); min-height: 32px; padding: 0 calc(var(--u)*1.2); border: 0; border-radius: var(--hd-pill,99px); background: color-mix(in srgb, currentColor 16%, transparent); color: inherit; font: 600 calc(var(--u)*1.5)/1 var(--f-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.app-shell .hd-alarm-buttons .hd-alarm-buttons__disarm { background: #fff; color: #1d1a17; }
+.app-shell .hd-alarm-buttons button:disabled { opacity: .5; cursor: default; }
+.app-shell .widget-card .hd-alarm-buttons { position: absolute; z-index: 1; left: 52%; right: 17px; top: 50%; transform: translateY(-50%); flex-direction: column; flex-wrap: nowrap; margin: 0; }
+.app-shell .widget-card .hd-alarm-buttons button { flex: none; }
+.app-shell .widget-card:has(> .hd-alarm-buttons) .widget-list { display: none; }
+/* Half-size devices: icon, name and state in one line; the card's extra controls stay for 1× and up. */
+.app-shell .hd-item--small > .device-tile > :not(.device-tile__top, .device-tile__copy, .device-tile__art, .device-tile__lock, .device-tile__confirm, .device-tile__busy) { display: none; }
+/* Separators fold what follows them: the title is a button with a chevron (down open, right folded). */
+.app-shell .hd-section__fold { flex: none; display: inline-flex; align-items: center; gap: calc(var(--u)*.8); max-width: 70%; padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.app-shell .hd-section__fold > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .hd-section__fold > svg { flex: none; opacity: .7; transform: rotate(90deg); transition: transform .2s ease; }
+.app-shell .hd-section--folded .hd-section__fold > svg { transform: none; }
+/* Floor names between the rooms of the Rooms tab ("Group rooms by floor"). */
+.app-shell .room-selector__floor { display: block; padding: calc(var(--u)*1.6) calc(var(--u)*1.2) calc(var(--u)*.6); color: var(--ink-3, rgba(255,255,255,.5)); font: 700 calc(var(--u)*1.2)/1.2 var(--f-body); letter-spacing: .12em; text-transform: uppercase; }
+.app-shell .room-selector__floor:first-child { padding-top: calc(var(--u)*.4); }
+.app-shell .hd-backup-confirm { display: inline-flex; flex-wrap: wrap; gap: calc(var(--u)*.6); justify-content: flex-end; }
+/* Folder card and its window. */
+.app-shell .hd-folder { width: 100%; height: 100%; text-align: left; font: inherit; cursor: pointer; }
+.app-shell .hd-folder .device-tile__top { display: flex; justify-content: space-between; align-items: flex-start; }
+.app-shell .hd-folder__arrow { opacity: .55; }
+.app-shell .hd-folder-sheet { width: min(1100px, 94vw); max-height: 90vh; display: flex; flex-direction: column; }
+.app-shell .hd-folder-sheet__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: calc(var(--u)*.4) calc(var(--u)*.2) calc(var(--u)*1.4); }
+.app-shell .hd-folder-sheet__title { display: flex; align-items: center; gap: calc(var(--u)*1.2); min-width: 0; }
+.app-shell .hd-folder-sheet__title h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .hd-folder-sheet__icon { display: grid; place-items: center; width: calc(var(--u)*4.4); height: calc(var(--u)*4.4); border-radius: var(--hd-round,50%); background: rgba(255,255,255,.12); }
+.app-shell .hd-folder-sheet__naming { display: flex; align-items: center; gap: calc(var(--u)*1); flex: 1; min-width: 0; }
+.app-shell .hd-folder-sheet__naming input { flex: 1; min-width: 0; height: calc(var(--u)*4.4); padding: 0 calc(var(--u)*1.4); border: 1px solid rgba(255,255,255,.18); border-radius: var(--hd-pill,99px); background: rgba(255,255,255,.08); color: inherit; font: 600 calc(var(--u)*1.8)/1 var(--f-body); }
+.app-shell .hd-folder-sheet__empty { margin: calc(var(--u)*2) 0; opacity: .65; text-align: center; }
+/* Without the lights button, the arrow of a lit room card stays readable on its light surface. */
+.app-shell .room-card--active .room-card__arrow { color: currentColor; border-color: color-mix(in srgb, currentColor 18%, transparent); background: color-mix(in srgb, currentColor 8%, transparent); opacity: .7; }
+/* The next days beside the weather in the header (optional); no room for them on phones. */
+.app-shell .weather-chip__days { display: inline-flex; align-items: center; gap: calc(var(--u)*1.4); margin-left: calc(var(--u)*.6); padding-left: calc(var(--u)*1.4); border-left: 1px solid color-mix(in srgb, currentColor 22%, transparent); }
+.app-shell .weather-chip__days > span { display: inline-flex; align-items: center; gap: calc(var(--u)*.45); white-space: nowrap; }
+.app-shell .weather-chip__days small { display: inline !important; text-transform: capitalize; opacity: .75; font-size: calc(var(--u)*1.45); }
+.app-shell .weather-chip__days b { font-size: calc(var(--u)*1.65); font-weight: 650; }
+.app-shell .weather-chip__days i { font-style: normal; font-size: calc(var(--u)*1.45); opacity: .6; }
+@media (max-width: 720px) { .app-shell .weather-chip__days { display: none; } }
+/* Recently added: covers in one row (two on a large card), as many as fit. */
+.app-shell .hd-recent { display: flex; flex-direction: column; gap: calc(var(--u)*1.2); height: 100%; box-sizing: border-box; }
+.app-shell .hd-recent__empty { margin: auto 0; font-size: calc(var(--u)*1.5); opacity: .6; white-space: normal; text-transform: none; }
+.app-shell .hd-recent__row { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(var(--u)*9.5), 1fr)); grid-template-rows: 1fr; grid-auto-rows: 0; column-gap: calc(var(--u)*1.2); overflow: hidden; }
+.app-shell .hd-recent--tall .hd-recent__row { grid-template-rows: 1fr 1fr; row-gap: calc(var(--u)*1.4); }
+.app-shell .hd-recent__item { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: calc(var(--u)*.4); padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; overflow: hidden; }
+.app-shell .hd-recent__poster { flex: 1 1 auto; min-height: 0; display: grid; place-items: center; overflow: hidden; border-radius: calc(10px*var(--hd-r,1)); background: rgba(255,255,255,.08); }
+.app-shell .hd-recent__poster { position: relative; }
+.app-shell .hd-recent__poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.app-shell .hd-recent > .widget-card__icon { position: static; flex: none; align-self: flex-start; }
+.app-shell .hd-recent__item b { flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(var(--u)*1.35); font-weight: 650; }
+.app-shell .hd-recent__item small { flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(var(--u)*1.15); opacity: .65; }
+.app-shell .st-note { margin: calc(var(--u)*.4) 0; color: var(--ink-2); font: 500 calc(var(--u)*1.5)/1.4 var(--f-body); }
+/* Nothing in the panel is selected by a long press or a drag: it is a control surface, not a page.
+   Fields where people type keep normal selection. */
+.app-shell, .app-shell * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.app-shell :is(input, textarea, select, [contenteditable="true"]), .app-shell :is(input, textarea, [contenteditable="true"]) * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+/* Sideways rows fade where there is more to swipe (scrollFades.ts sets data-fade). The tab bar keeps a
+   little of its glass at the edge, so its round ends still read as a bar. */
+.app-shell [data-fade] { --fade: calc(var(--u)*4.2); --fade-edge: transparent; }
+.app-shell .navigation-dock[data-fade] { --fade-edge: rgba(0,0,0,.18); }
+.app-shell [data-fade="right"] { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), var(--fade-edge)); mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), var(--fade-edge)); }
+.app-shell [data-fade="left"] { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - var(--fade)), var(--fade-edge)); mask-image: linear-gradient(to left, #000 calc(100% - var(--fade)), var(--fade-edge)); }
+.app-shell [data-fade="both"] { -webkit-mask-image: linear-gradient(to right, var(--fade-edge), #000 var(--fade), #000 calc(100% - var(--fade)), var(--fade-edge)); mask-image: linear-gradient(to right, var(--fade-edge), #000 var(--fade), #000 calc(100% - var(--fade)), var(--fade-edge)); }
+.app-shell .hd-detail__choice { flex-wrap: wrap; row-gap: calc(var(--u)*1); }
+.app-shell .hd-detail__choice > .hdx-segmented { flex: none; }
+/* A Home plan card with a picture is lit like a room with lights on: the picture, as it is, sits on the
+   card's paper. The Floor plan page keeps its own look. */
+.app-shell .widget-card.fp-card--image { background: var(--paper); color: var(--paper-ink); border-color: transparent; }
+.app-shell .widget-card.fp-card--image .widget-card__label { color: var(--paper-ink-2); }
+/* Real glass (Glass theme, the Shine option in Settings → Appearance): besides the frosted fill, a pane catches light. A soft sheen falls from the top
+   left, the top edge shines and the bottom edge is a touch darker, what is behind gets a little more color
+   and the pane floats on a light shadow. Lit cards keep their own fill; only the light and the edges apply. */
+.app-shell.theme-glass.hd-shine :where(.room-card, .device-tile, .widget-card, .weather-chip, .navigation-dock, .scene-strip .hd-item > button:first-child) {
+  background-image: linear-gradient(135deg, rgba(255,255,255,.13) 0%, rgba(255,255,255,.04) 38%, rgba(255,255,255,0) 60%);
+  backdrop-filter: blur(var(--hd-blur,22px)) saturate(1.7) brightness(1.04); -webkit-backdrop-filter: blur(var(--hd-blur,22px)) saturate(1.7) brightness(1.04);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.26), inset 1px 0 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.14), 0 10px 28px -12px rgba(0,0,0,.45);
+}
+/* The same glass on the Settings cards: the full effect on each block, and on the cards inside a block
+   (layout choices, sub-groups) only the light and the edges, so shadows never pile up. */
+.app-shell.theme-glass.hd-shine .settings-v2 .st-panel {
+  background-image: linear-gradient(135deg, rgba(255,255,255,.13) 0%, rgba(255,255,255,.04) 38%, rgba(255,255,255,0) 60%);
+  backdrop-filter: blur(var(--hd-blur,22px)) saturate(1.7) brightness(1.04); -webkit-backdrop-filter: blur(var(--hd-blur,22px)) saturate(1.7) brightness(1.04);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.26), inset 1px 0 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.14), 0 10px 28px -12px rgba(0,0,0,.45);
+}
+.app-shell.theme-glass.hd-shine .settings-v2 :is(.lp-option, .st-sub) {
+  background-image: linear-gradient(135deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,0) 50%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), inset 0 -1px 0 rgba(0,0,0,.12);
+}
+.app-shell.theme-glass.hd-shine :where(.room-card--active, .device-tile--active) { background-image: linear-gradient(135deg, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 55%); }
+/* The player over the panel like the screensaver: frosted glass with the album's colors glowing softly
+   through, instead of a solid dark page. */
+.app-shell .hd-player__bg i { opacity: .55; }
+.app-shell .hd-player__bg::after { background: linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.35)); }
+/* Phones: everything fits the visible screen (the browser's bars left out), without scrolling. */
+@media (max-width: 720px) {
+  .app-shell .hd-player { --u: clamp(4.6px, min(calc(var(--hd-vh, 1vh)*.82), 1.9vw), 9px); }
+  .app-shell .hd-player__art { width: min(calc(var(--hd-vh, 1vh)*30), 74vw); }
+  .app-shell .hd-player__wrap { gap: calc(var(--u)*2); }
+  .app-shell .hd-player__scroll { padding-top: calc(var(--u)*8 + env(safe-area-inset-top, 0px)); padding-bottom: calc(var(--u)*3 + env(safe-area-inset-bottom, 0px)); }
+}
 `;

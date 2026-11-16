@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { ContextHeader } from "../../components/ContextHeader";
 import { EditableGrid } from "../../components/EditableGrid";
@@ -23,11 +24,14 @@ interface SidebarLayoutProps extends ScreenProps {
   /** Media, Security, Scenes or a custom page, shown on the right like a room. */
   page: PageRef | null;
   roomId: string | null;
+  /** A screen of its own on the right (the floor plan), with the id of its menu link. */
+  custom?: ReactNode;
+  customId?: string;
 }
 
 /** Control-center layout: a fixed column with context and navigation, content on the right. */
 export function SidebarLayout(props: SidebarLayoutProps) {
-  const { allRooms, config, data, editing, hass, language, links, onNavigate, onSelectRoom, page, roomId, t } = props;
+  const { allRooms, config, custom, customId, data, editing, hass, language, links, onNavigate, onSelectRoom, page, roomId, t } = props;
   const [modalEntity, setModalEntity] = useState<DiscoveredEntity | null>(null);
   const roomList = useSidebarRoomList(props);
   const room = roomList.rooms.find((item) => item.id === roomId);
@@ -40,7 +44,7 @@ export function SidebarLayout(props: SidebarLayoutProps) {
       <ContextHeader config={config} hass={hass} language={language} onSettings={props.onSettings} part="clock" t={t} />
       {config.visibility.home_cards.status && !editing && <HomeStatus config={config} data={data} hass={hass} t={t} />}
       <nav className="sb-nav" aria-label={t("navigation")}>
-        <button aria-current={!room && !page ? "page" : undefined} onClick={() => onSelectRoom(null)} type="button"><span className="sb-nav__icon"><HDIcon name="home" size={18} /></span><span>{t("overview")}</span></button>
+        <button aria-current={!room && !page && !custom ? "page" : undefined} onClick={() => onSelectRoom(null)} type="button"><span className="sb-nav__icon"><HDIcon name="home" size={18} /></span><span>{t("overview")}</span></button>
         <EditableGrid
           className="sb-nav__rooms"
           editing={editing}
@@ -58,12 +62,12 @@ export function SidebarLayout(props: SidebarLayoutProps) {
         />
       </nav>
       {links.length > 0 && !editing && <nav className="sb-links" aria-label={t("pages")}>
-        {links.map((link) => <button aria-current={page && pageId(page) === link.id ? "page" : undefined} key={link.id} onClick={() => onNavigate(link.id)} type="button"><HDIcon name={link.icon} size={16} /><span>{link.label}</span></button>)}
+        {links.map((link) => <button aria-current={(page && pageId(page) === link.id) || customId === link.id ? "page" : undefined} key={link.id} onClick={() => onNavigate(link.id)} type="button"><HDIcon name={link.icon} size={16} /><span>{link.label}</span></button>)}
       </nav>}
     </aside>
 
-    <section className="sb-main">
-      {page ? <SidebarPage key={pageId(page)} onLongPress={setModalEntity} page={page} props={props} /> : room ? <>
+    <section className="sb-main" key={customId ?? (page ? pageId(page) : room?.id ?? "home")}>
+      {custom ? custom : page ? <SidebarPage key={pageId(page)} onLongPress={setModalEntity} page={page} props={props} /> : room ? <>
         <header className="sb-main__header">
           <div><span className="eyebrow">{(() => { const { lights, on } = roomLights(hass, room); return lights.length === 0 ? t("roomsPage") : on.length === 0 ? t("allOff") : t("roomLitOf").replace("{on}", String(on.length)).replace("{total}", String(lights.length)); })()}</span><h1>{name(room.id, room.name)}</h1></div>
           {roomLights(hass, room).lights.length > 0 && !editing && <div className="room-actions"><button onClick={() => setRoomLights(hass, room, true)} type="button"><HDIcon name="light" size={18} />{t("turnOn")}</button><button className="room-actions__primary" onClick={() => setRoomLights(hass, room, false)} type="button"><HDIcon name="power" size={18} />{t("turnOff")}</button></div>}

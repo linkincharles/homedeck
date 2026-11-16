@@ -175,7 +175,8 @@ export const themeLayouts = String.raw`
 .app-shell .fc-track::-webkit-scrollbar { display: none; }
 .app-shell .fc-page {
   position: relative; flex: 0 0 100%; height: 100%; scroll-snap-align: start; overflow-y: auto; scrollbar-width: none;
-  display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u)*3);
+  /* Top-aligned, so rooms with little and with a lot start at the same height. */
+  display: flex; flex-direction: column; justify-content: flex-start; gap: calc(var(--u)*3);
   padding: calc(var(--u)*9) calc(var(--u)*7) calc(var(--u)*20);
 }
 .app-shell .fc-page--lit { background: radial-gradient(circle at 82% 28%, color-mix(in srgb, var(--on) 26%, transparent), transparent 58%); }

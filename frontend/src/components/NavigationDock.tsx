@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { planTitle } from "./FloorPlan";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { TranslationKey } from "../i18n";
 import type { HomeDeckConfig, HomeDeckPageConfig } from "../types/config";
@@ -30,6 +31,7 @@ export function NavigationDock({ active, config, editing, hasMedia, hasScenes, h
     ...(config.navigation.media && hasMedia ? [{ id: "media", icon: "media" as const, label: t("media") }] : []),
     ...(config.navigation.security && hasSecurity ? [{ id: "security", icon: "shield" as const, label: t("security") }] : []),
     ...(config.navigation.cameras && hasCameras ? [{ id: "cameras", icon: "camera" as const, label: t("camerasTitle") }] : []),
+    ...(config.navigation.plan ? [{ id: "plan", icon: "plan" as const, label: planTitle(config, t) }] : []),
     ...config.pages.map((page) => ({ id: page.id, icon: pageIcon(page), label: page.title })),
   ], config.navigation.order);
   const nav = useRef<HTMLElement>(null);
@@ -38,6 +40,20 @@ export function NavigationDock({ active, config, editing, hasMedia, hasScenes, h
   // Pointer up and the lost capture both end a drag: the ref makes sure the order is saved once.
   const order = useRef<string[] | null>(null);
   const shown = live ? live.map((id) => tabs.find((tab) => tab.id === id)!).filter(Boolean) : tabs;
+  // A pill behind the active tab that slides to the next one (with transitions on; see theme-extras).
+  const [pill, setPill] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    const element = nav.current;
+    if (!element) return;
+    const measure = () => {
+      const current = element.querySelector<HTMLElement>(".navigation-dock__active");
+      setPill(current ? { left: current.offsetLeft, top: current.offsetTop, width: current.offsetWidth, height: current.offsetHeight } : null);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [active, editing, live, tabs.length]);
 
   // The pointer is captured by the bar itself: the dragged tab moves in the DOM and would lose it.
   const start = (event: ReactPointerEvent, id: string) => {
@@ -86,6 +102,7 @@ export function NavigationDock({ active, config, editing, hasMedia, hasScenes, h
   ><HDIcon name={editing && movable ? "grip" : tab.icon} size={19} /><span>{tab.label}</span></button>;
 
   return <nav aria-label={t("navigation")} className={editing ? "navigation-dock navigation-dock--editing" : "navigation-dock"} onLostPointerCapture={end} onPointerMove={move} onPointerUp={end} ref={nav}>
+    {pill && !editing && <span aria-hidden="true" className="navigation-dock__pill" style={{ left: pill.left, top: pill.top, width: pill.width, height: pill.height }} />}
     {item({ id: "home", icon: "home", label: t("home") }, false)}
     {shown.map((tab) => item(tab, true))}
   </nav>;

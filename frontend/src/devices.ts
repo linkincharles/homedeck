@@ -1,3 +1,4 @@
+import { hourOptions } from "./clock";
 import type { TranslationKey } from "./i18n";
 import type { HassEntity, HomeAssistant } from "./types/home-assistant";
 
@@ -203,16 +204,26 @@ let cameraPlayer: Promise<boolean> | null = null;
 /** Cameras that only stream over WebRTC (newer Google Nest models). Home Assistant still serves them an
  * MJPEG address, but it only repeats a placeholder picture, so they go straight to the player. Cached
  * per camera; any doubt (an older Home Assistant, an error) keeps the usual MJPEG. */
-const webRtcOnly = new Map<string, Promise<boolean>>();
-export function cameraIsWebRtcOnly(hass: HomeAssistant, entityId: string): Promise<boolean> {
-  let known = webRtcOnly.get(entityId);
+const streamTypes = new Map<string, Promise<string[]>>();
+function cameraStreamTypes(hass: HomeAssistant, entityId: string): Promise<string[]> {
+  let known = streamTypes.get(entityId);
   if (!known) {
     known = hass.connection.sendMessagePromise<{ frontend_stream_types?: string[] }>({ type: "camera/capabilities", entity_id: entityId })
-      .then((result) => { const types = result?.frontend_stream_types ?? []; return types.includes("web_rtc") && !types.includes("hls"); })
-      .catch(() => false);
-    webRtcOnly.set(entityId, known);
+      .then((result) => result?.frontend_stream_types ?? [])
+      .catch(() => []);
+    streamTypes.set(entityId, known);
   }
   return known;
+}
+export function cameraIsWebRtcOnly(hass: HomeAssistant, entityId: string): Promise<boolean> {
+  return cameraStreamTypes(hass, entityId).then((types) => types.includes("web_rtc") && !types.includes("hls"));
+}
+/** Whether the live view goes to Home Assistant's player: every camera that offers WebRTC (it starts in
+ * about a second and stays smooth, where MJPEG of an RTSP camera is transcoded and lags), unless the
+ * camera was set to MJPEG first; then only cameras with nothing but WebRTC. HLS-only cameras keep MJPEG,
+ * which starts faster than HLS. */
+export function cameraUsesPlayer(hass: HomeAssistant, entity: { entity_id: string; camera_mjpeg?: boolean }): Promise<boolean> {
+  return entity.camera_mjpeg ? cameraIsWebRtcOnly(hass, entity.entity_id) : cameraStreamTypes(hass, entity.entity_id).then((types) => types.includes("web_rtc"));
 }
 
 export function loadCameraPlayer(): Promise<boolean> {
@@ -242,7 +253,7 @@ export function friendlyDate(state: HassEntity | undefined, language?: string): 
   if (Number.isNaN(+date)) return null;
   const start = (moment: Date) => new Date(moment.getFullYear(), moment.getMonth(), moment.getDate()).getTime();
   const days = Math.round((start(date) - start(new Date())) / 86_400_000);
-  const time = new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(date);
+  const time = new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" }).format(date);
   let day: string;
   if (Math.abs(days) <= 1) {
     const word = new Intl.RelativeTimeFormat(language, { numeric: "auto" }).format(days, "day");

@@ -24,7 +24,8 @@ export function applyAudience(data: DiscoveryResponse, hiddenFor: HomeDeckConfig
 export const isRoomLight = (entity: DiscoveredEntity) => entity.domain === "light" && !entity.hidden;
 
 /** The cover options copied onto each card (see HomeDeckEntityOptions). */
-const COVER_FLAGS = ["cover_no_tap", "cover_swap_buttons", "cover_invert_position", "cover_invert_state", "cover_side_buttons"] as const;
+/** On/off options copied onto the entity (covers, security, alarm and camera choices). */
+const COVER_FLAGS = ["cover_no_tap", "cover_swap_buttons", "cover_invert_position", "cover_invert_state", "cover_side_buttons", "cover_no_highlight", "security_item", "alarm_buttons", "camera_mjpeg"] as const;
 
 export function personalize(data: DiscoveryResponse, names: HomeDeckConfig["names"], rooms: HomeDeckConfig["rooms"] | undefined, entityOptions?: HomeDeckConfig["entity_options"], haIcons = false, layouts?: HomeDeckConfig["layouts"], haRoomIcons = false): DiscoveryResponse {
   const nicknames = names ?? {};
@@ -44,14 +45,15 @@ export function personalize(data: DiscoveryResponse, names: HomeDeckConfig["name
         ...(name ? { name, original_name: room.name } : {}),
         display_icon: typeof own.icon === "string" && own.icon ? own.icon : haRoomIcons && room.icon?.includes(":") ? "ha" : undefined,
         temperature_entity: typeof own.temperature === "string" && own.temperature ? own.temperature : undefined,
+        humidity_entity: typeof own.humidity === "string" && own.humidity ? own.humidity : undefined,
         entities: room.entities.map((entity) => {
           const nickname = nicknames[entity.entity_id];
           const own = perEntity[entity.entity_id] ?? {};
           // The tile's icon: the one chosen for this device, else Home Assistant's when that option is on.
           const icon = own.icon || (haIcons ? "ha" : undefined);
           const off = hidden.has(`entity:${entity.entity_id}`);
-          if (!nickname && !icon && !own.confirm && !own.child_lock && !own.light_accent && !own.visible_when && !own.not_security && !COVER_FLAGS.some((flag) => own[flag]) && !off) return entity;
-          return { ...entity, ...(nickname ? { name: nickname, original_name: entity.name } : {}), ...(icon ? { display_icon: icon } : {}), ...(own.confirm ? { confirm: true } : {}), ...(own.child_lock ? { child_lock: true } : {}), ...(own.light_accent ? { light_accent: true } : {}), ...(own.visible_when ? { visible_when: own.visible_when } : {}), ...(own.not_security ? { not_security: true } : {}), ...Object.fromEntries(COVER_FLAGS.filter((flag) => own[flag]).map((flag) => [flag, true])), ...(off ? { hidden: true } : {}) };
+          if (!nickname && !icon && !own.confirm && !own.child_lock && !own.light_accent && !own.visible_when && !own.not_security && !own.cover_control && !COVER_FLAGS.some((flag) => own[flag]) && !off) return entity;
+          return { ...entity, ...(nickname ? { name: nickname, original_name: entity.name } : {}), ...(icon ? { display_icon: icon } : {}), ...(own.confirm ? { confirm: true } : {}), ...(own.child_lock ? { child_lock: true } : {}), ...(own.light_accent ? { light_accent: true } : {}), ...(own.visible_when ? { visible_when: own.visible_when } : {}), ...(own.not_security ? { not_security: true } : {}), ...(own.cover_control === "buttons" || own.cover_control === "slider" ? { cover_control: own.cover_control } : {}), ...Object.fromEntries(COVER_FLAGS.filter((flag) => own[flag]).map((flag) => [flag, true])), ...(off ? { hidden: true } : {}) };
         }),
       };
     }),
@@ -145,7 +147,15 @@ export function withRoomOptions(config: HomeDeckConfig, roomId: string, change: 
 }
 
 /** The room's temperature: the chosen sensor, or the current temperature of its climate device. */
-export function roomTemperature(hass: HomeAssistant, room: { temperature_entity?: string; entities: Array<{ entity_id: string; domain: string }> }): string | null {
+export function roomTemperature(hass: HomeAssistant, room: { temperature_entity?: string; humidity_entity?: string; entities: Array<{ entity_id: string; domain: string }> }): string | null {
+  const temperature = roomTemperatureOnly(hass, room);
+  // The humidity chosen for the room goes beside it: "22° · 55%".
+  const humidity = room.humidity_entity ? Number.parseFloat(hass.states[room.humidity_entity]?.state ?? "") : Number.NaN;
+  const percent = Number.isFinite(humidity) ? `${Math.round(humidity)}%` : null;
+  return [temperature, percent].filter(Boolean).join(" · ") || null;
+}
+
+function roomTemperatureOnly(hass: HomeAssistant, room: { temperature_entity?: string; entities: Array<{ entity_id: string; domain: string }> }): string | null {
   if (room.temperature_entity) {
     const state = hass.states[room.temperature_entity];
     const value = state ? Number.parseFloat(state.state) : Number.NaN;
@@ -154,6 +164,10 @@ export function roomTemperature(hass: HomeAssistant, room: { temperature_entity?
   const climate = room.entities.find((entity) => entity.domain === "climate");
   const current = climate ? hass.states[climate.entity_id]?.attributes.current_temperature : undefined;
   return typeof current === "number" ? `${current}°` : null;
+}
+
+export function isHumiditySensor(state?: HassEntity): boolean {
+  return Boolean(state && state.entity_id.startsWith("sensor.") && state.attributes.device_class === "humidity");
 }
 
 export function isTemperatureSensor(state?: HassEntity): boolean {
@@ -188,6 +202,8 @@ export const CustomizeContext = createContext<{
   setLinkName: (itemKey: string, entityId: string, name: string) => void;
   /** The name a device has only in this room ("" when it uses its usual name). */
   roomName: (screen: string, entityId: string) => string;
+  /** Puts a device into another room inside HomeDeck (added there, hidden where it was). */
+  moveToRoom: (entityId: string, fromRoomId: string, toRoomId: string) => void;
   setRoomName: (screen: string, entityId: string, name: string) => void;
 } | null>(null);
 export const useCustomize = () => useContext(CustomizeContext);

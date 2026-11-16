@@ -5,10 +5,11 @@ import { hvacLabel, type TranslationKey } from "../i18n";
 import type { DiscoveredEntity } from "../types/discovery";
 import type { HassEntity, HomeAssistant } from "../types/home-assistant";
 import { useTallTile, useWideTile } from "./EditableGrid";
+import { AlarmButtons } from "./AlarmButtons";
 import { isNumericState, useHistory, useSensorSince, useSparklines } from "../history";
 import { Sparkline } from "./HistoryChart";
 import { EntityIcon, HDIcon } from "./HDIcon";
-import { childLocked, useDevicePref } from "../devicePrefs";
+import { childLocked, childLockNote, useDevicePref } from "../devicePrefs";
 import { since, WideControls } from "./WideControls";
 import { CameraCard } from "./CameraCard";
 import { HDSelect } from "./HDSelect";
@@ -107,14 +108,17 @@ export function EntityCard(props: EntityCardProps) {
 
 function DeviceCard({ entity, hass, language, onLongPress, t }: EntityCardProps) {
   const childOn = useDevicePref(childLocked);
+  // A card under the child lock opens nothing either: its details would let the device be switched.
+  const openDetails = (target: DiscoveredEntity) => { if (childOn && entity.child_lock) { childLockNote("blocked"); return; } onLongPress(target); };
   const [busy, setBusy] = useState(false);
   const [brightnessDraft, setBrightnessDraft] = useState<number | null>(null);
+  const [coverDraft, setCoverDraft] = useState<number | null>(null);
   const holdTimer = useRef<number | null>(null);
   const holdOrigin = useRef<{ x: number; y: number } | null>(null);
   const held = useRef(false);
   const wide = useWideTile();
   const state = hass.states[entity.entity_id];
-  const active = entity.domain === "cover" ? coverOn(entity, state?.state) : ACTIVE_STATES.has(state?.state ?? "");
+  const active = entity.domain === "cover" ? !entity.cover_no_highlight && coverOn(entity, state?.state) : ACTIVE_STATES.has(state?.state ?? "");
   const unavailable = !state || ["unavailable", "unknown"].includes(state.state);
   const customize = useCustomize();
   // Optional, per card: the highlight takes the color the light is showing.
@@ -162,7 +166,7 @@ function DeviceCard({ entity, hass, language, onLongPress, t }: EntityCardProps)
     if (domain === "scene") return void run(() => hass.callService("scene", "turn_on", { entity_id: entity.entity_id }));
     if (RUNNABLE.has(domain)) return void run(() => runEntity(hass, entity.entity_id));
     if (domain === "cover") return quietCover ? undefined : void run(() => hass.callService("cover", "toggle", { entity_id: entity.entity_id }));
-    onLongPress(entity);
+    openDetails(entity);
   };
 
   // A pick in a dropdown (rendered elsewhere, but its events still reach the card) is not a tap on the card.
@@ -173,7 +177,7 @@ function DeviceCard({ entity, hass, language, onLongPress, t }: EntityCardProps)
     if (fromControl(event.target)) return;
     cancelHold();
     holdOrigin.current = { x: event.clientX, y: event.clientY };
-    holdTimer.current = window.setTimeout(() => { holdTimer.current = null; held.current = true; onLongPress(entity); }, HOLD_MS);
+    holdTimer.current = window.setTimeout(() => { holdTimer.current = null; held.current = true; openDetails(entity); }, HOLD_MS);
   };
   const moveHold = (event: PointerEvent<HTMLElement>) => {
     if (holdOrigin.current && Math.hypot(event.clientX - holdOrigin.current.x, event.clientY - holdOrigin.current.y) > 10) cancelHold();
@@ -186,8 +190,12 @@ function DeviceCard({ entity, hass, language, onLongPress, t }: EntityCardProps)
   const key = (event: KeyboardEvent<HTMLElement>) => {
     if (event.target !== event.currentTarget) return;
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); tap(); }
-    if (event.key === "ContextMenu") { event.preventDefault(); onLongPress(entity); }
+    if (event.key === "ContextMenu") { event.preventDefault(); openDetails(entity); }
   };
+  // Covers set to "position only" (Card options) get a position bar at 1×, like a light's brightness.
+  const coverReported = entity.domain === "cover" && entity.cover_control === "slider" && Number(state?.attributes.supported_features) & 4 ? Number(state?.attributes.current_position) : Number.NaN;
+  const coverSlider = Number.isFinite(coverReported) ? (entity.cover_invert_position ? 100 - coverReported : coverReported) : null;
+  const setCoverPosition = (value: number) => { setCoverDraft(null); void run(() => hass.callService("cover", "set_cover_position", { entity_id: entity.entity_id, position: entity.cover_invert_position ? 100 - value : value })); };
   const setBrightness = (value: number) => { setBrightnessDraft(null); void run(() => hass.callService("light", "turn_on", { entity_id: entity.entity_id, brightness_pct: value })); };
   const commitKey = (event: KeyboardEvent<HTMLInputElement>) => {
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) setBrightness(Number(event.currentTarget.value));
@@ -206,7 +214,7 @@ function DeviceCard({ entity, hass, language, onLongPress, t }: EntityCardProps)
       style={lightAccent}
       data-running={isAppliance(entity) && applianceRunning(state) ? "appliance" : undefined}
       onClick={click}
-      onContextMenu={(event) => { event.preventDefault(); cancelHold(); onLongPress(entity); }}
+      onContextMenu={(event) => { event.preventDefault(); cancelHold(); openDetails(entity); }}
       onKeyDown={key}
       onPointerCancel={cancelHold}
       onPointerDown={startHold}
@@ -232,10 +240,14 @@ function DeviceCard({ entity, hass, language, onLongPress, t }: EntityCardProps)
       {wide && entity.domain === "sensor" && isNumericState(state) && <SensorSpark entityId={entity.entity_id} language={language} hass={hass} unit={typeof state?.attributes.unit_of_measurement === "string" ? state.attributes.unit_of_measurement : undefined} />}
       {wide && !unavailable && state && <div className="tile-wide">{SELECTS.has(entity.domain) && (customize?.linksFor(`entity:${entity.entity_id}`).length ?? 0) > 0
         ? <HDSelect ariaLabel={`${t("chooseOption")}: ${entity.name}`} className="device-select" onChange={(option) => void run(() => selectOption(hass, entity.entity_id, option))} options={selectOptions(state).map((option) => ({ label: option, value: option }))} value={state.state} />
+        : entity.domain === "alarm_control_panel" && entity.alarm_buttons ? <AlarmButtons entity={entity} hass={hass} onOpen={openDetails} t={t} />
         : <WideControls entity={entity} hass={hass} language={language} state={state} t={t} />}<CardLinks hass={hass} itemKey={`entity:${entity.entity_id}`} language={language} t={t} /></div>}
 
 
-      {!wide && entity.domain === "cover" && !unavailable && (
+      {!wide && entity.domain === "cover" && !unavailable && coverSlider != null && (
+        <label className="device-dimmer device-dimmer--cover" style={{ "--value": `${coverDraft ?? coverSlider}%` } as CSSProperties}><span className="sr-only">{t("setPosition")}</span><b aria-hidden="true" /><input aria-label={`${t("setPosition")}: ${entity.name}`} max="100" min="0" onChange={(event) => setCoverDraft(Number(event.currentTarget.value))} onKeyUp={(event) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) setCoverPosition(Number(event.currentTarget.value)); }} onPointerUp={(event) => setCoverPosition(Number(event.currentTarget.value))} type="range" value={coverDraft ?? coverSlider} /></label>
+      )}
+      {!wide && entity.domain === "cover" && !unavailable && coverSlider == null && (
         <div className={`device-controls device-controls--cover${entity.cover_side_buttons ? " device-controls--side" : ""}`}>
           <button aria-label={t("openCover")} onClick={() => void run(() => hass.callService("cover", coverMove(entity, "up"), { entity_id: entity.entity_id }))} type="button"><span className="rotate-up"><HDIcon name="chevron" size={20} /></span></button>
           <button aria-label={t("stopCover")} onClick={() => void run(() => hass.callService("cover", "stop_cover", { entity_id: entity.entity_id }))} type="button"><HDIcon name="stop" size={16} /></button>

@@ -20,7 +20,7 @@ const LINK_DOMAINS = ["cover", "light", "switch", "fan", "input_boolean", "lock"
 const SWITCHES = new Set(["light", "switch", "fan", "input_boolean"]);
 const CONFIRM_MS = 3000;
 
-function LinkedDevice({ entity, hass, label, language, t }: { entity: DiscoveredEntity; hass: HomeAssistant; label: string; language?: string; t: (key: TranslationKey) => string }) {
+export function LinkedDevice({ entity, hass, label, language, t }: { entity: DiscoveredEntity; hass: HomeAssistant; label: string; language?: string; t: (key: TranslationKey) => string }) {
   const state = hass.states[entity.entity_id];
   const [asking, setAsking] = useState(false);
   useEffect(() => {

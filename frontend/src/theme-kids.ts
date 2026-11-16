@@ -74,7 +74,7 @@ export const themeKids = String.raw`
     radial-gradient(circle at 93% 26%, rgba(255,255,255,.35) 0 2.5%, transparent 3.5%),
     linear-gradient(165deg, color-mix(in srgb, color-mix(in srgb, var(--kid-off) 70%, #fff) 50%, transparent) 0%, color-mix(in srgb, var(--kid-off) 50%, transparent) 58%, color-mix(in srgb, color-mix(in srgb, var(--kid-off) 88%, var(--kid-soft)) 50%, transparent) 100%);
   color: var(--kid-dark); isolation: isolate;
-  border: var(--kid-edge) solid var(--kid-dark); border-radius: calc(var(--u)*3.4);
+  border: var(--kid-edge) solid var(--kid-dark); border-radius: calc(var(--u)*3.4*var(--hd-r,1));
   box-shadow: inset 0 calc(var(--u)*.5) 0 rgba(255,255,255,.7), inset 0 calc(var(--u)*-.7) 0 color-mix(in srgb, var(--kid) 40%, transparent), 0 calc(var(--u)*.9) 0 var(--kid-shadow);
   backdrop-filter: none; -webkit-backdrop-filter: none;
   transition: transform .35s var(--kid-spring), box-shadow .2s ease, background .25s ease;
@@ -84,6 +84,8 @@ export const themeKids = String.raw`
 .app-shell.view-kids :is(.room-card__content strong, .device-tile__copy strong) { font-weight: 700; }
 /* Big numbers and titles ("All safe", 25°, page titles): bold, never hairline. */
 .app-shell.view-kids :is(.widget-card strong, .widget-card b, .climate-quick-control span, .screen h1) { font-weight: 700; }
+/* The rounded bold type is wider: the big line of a widget ("Everything secure") a bit smaller, so whole words fit. */
+.app-shell.view-kids .widget-card > strong { font-size: calc(var(--u)*2.6); line-height: 1.12; }
 /* Summary cards (security, climate, weather...) aren't devices that are off: their fill stays solid. A media
    player is a device: solid while playing, light and see-through like the others while idle or off. */
 .app-shell.view-kids :is(.widget-card:not(.spotify-card), .spotify-card--playing) {
@@ -92,15 +94,15 @@ export const themeKids = String.raw`
     radial-gradient(circle at 93% 26%, rgba(255,255,255,.6) 0 2.5%, transparent 3.5%),
     linear-gradient(165deg, color-mix(in srgb, var(--kid-soft) 45%, #fff) 0%, var(--kid-soft) 58%, color-mix(in srgb, var(--kid-soft) 72%, var(--kid)) 100%);
 }
-/* On: full color with a soft shine across the top. */
-.app-shell.view-kids :is(.room-card--active, .device-tile--active, .widget-card--playing) {
+/* On: full color with a soft shine across the top. The floor plan card always looks on. */
+.app-shell.view-kids :is(.room-card--active, .device-tile--active, .widget-card--playing, .widget-card.fp-card) {
   background: radial-gradient(circle at 104% 104%, color-mix(in srgb, var(--kid-fill, var(--kid)) 45%, transparent) 0 30%, transparent 31%),
     radial-gradient(circle at 86% 14%, rgba(255,255,255,.8) 0 5%, transparent 6%),
     radial-gradient(circle at 93% 26%, rgba(255,255,255,.65) 0 2.5%, transparent 3.5%),
     linear-gradient(170deg, color-mix(in srgb, var(--kid) 60%, #fff) 0%, var(--kid) 48%, color-mix(in srgb, var(--kid) 82%, #3a1d5c) 100%);
   box-shadow: inset 0 calc(var(--u)*.5) 0 rgba(255,255,255,.55), inset 0 calc(var(--u)*-.8) 0 color-mix(in srgb, var(--kid) 70%, #2b1550), 0 calc(var(--u)*.9) 0 var(--kid-shadow);
 }
-.app-shell.view-kids :is(.room-card--active, .device-tile--active) :is(span, small, p) { color: var(--kid-dark); }
+.app-shell.view-kids :is(.room-card--active, .device-tile--active, .fp-card) :is(span, small, p) { color: var(--kid-dark); }
 /* Off cards are see-through, so their words use the full dark ink (no fading) to read on any scene. */
 .app-shell.view-kids :is(.room-card:not(.room-card--active), .device-tile:not(.device-tile--active):not(.camera-tile), .spotify-card:not(.spotify-card--playing)) :is(strong, b, span, small, p) { color: var(--kid-dark); }
 .app-shell.view-kids .device-tile--alert { --kid: #ff6b6b; --kid-soft: #ffc9c9; }
@@ -110,10 +112,10 @@ export const themeKids = String.raw`
 .app-shell.view-kids :is(.device-tile__icon, .room-card__icon, .widget-card__icon) {
   /* A little sphere: shine at the top left, darker toward the bottom right. */
   background: radial-gradient(circle at 32% 28%, #fff 0 9%, color-mix(in srgb, var(--kid) 45%, #fff) 16%, var(--kid) 52%, color-mix(in srgb, var(--kid) 72%, #3a1d5c) 100%);
-  color: var(--kid-dark); border-radius: 50%; border: var(--kid-edge) solid var(--kid-dark);
+  color: var(--kid-dark); border-radius: var(--hd-round,50%); border: var(--kid-edge) solid var(--kid-dark);
   box-shadow: 0 calc(var(--u)*.35) 0 var(--kid-shadow);
 }
-.app-shell.view-kids :is(.device-tile--active .device-tile__icon, .room-card--active .room-card__icon, .widget-card--playing .widget-card__icon) {
+.app-shell.view-kids :is(.device-tile--active .device-tile__icon, .room-card--active .room-card__icon, .widget-card--playing .widget-card__icon, .fp-card .widget-card__icon) {
   background: radial-gradient(circle at 32% 28%, #fff 0 22%, #fffdf8 45%, color-mix(in srgb, #fffdf8 80%, var(--kid)) 100%);
 }
 .app-shell.view-kids .light-pip { background: color-mix(in srgb, var(--kid-dark) 18%, transparent); }
@@ -138,6 +140,12 @@ export const themeKids = String.raw`
 }
 .app-shell.view-kids .device-tile--active :is(.device-dimmer b, .tile-slider__track b) { background: radial-gradient(ellipse 22% 30% at 12% 30%, rgba(255,255,255,.55), rgba(255,255,255,0) 70%), linear-gradient(180deg, color-mix(in srgb, var(--kid-fill, #ff6b8b) 65%, #fff) 0%, var(--kid-fill, #ff6b8b) 55%, color-mix(in srgb, var(--kid-fill, #ff6b8b) 80%, #2b1550) 100%); }
 .app-shell.view-kids :is(.device-dimmer b, .tile-slider__track b)::after { background: #fff; width: 4px; box-shadow: 0 0 0 1.5px var(--kid-dark); }
+/* The cover's level (double and large cards) looks like the brightness bar, standing up: same frame, same
+   jelly fill, and the handle across the top of the fill. */
+.app-shell.view-kids .tile-vslider { background: linear-gradient(90deg, #ece7f5, #fff 45%); border: var(--kid-edge) solid var(--kid-dark); box-shadow: 0 calc(var(--u)*.35) 0 var(--kid-shadow); border-radius: calc(var(--u)*1.9*var(--hd-r,1)); color: var(--kid-dark); }
+.app-shell.view-kids .tile-vslider b { border-radius: calc(var(--u)*1.5*var(--hd-r,1)); background: radial-gradient(ellipse 30% 22% at 30% 12%, rgba(255,255,255,.55), rgba(255,255,255,0) 70%), linear-gradient(90deg, color-mix(in srgb, var(--kid-fill, #ff6b8b) 65%, #fff) 0%, var(--kid-fill, #ff6b8b) 55%, color-mix(in srgb, var(--kid-fill, #ff6b8b) 80%, #2b1550) 100%); }
+.app-shell.view-kids .tile-vslider b::after { content: ""; position: absolute; left: 24%; right: 24%; top: 5px; height: 4px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 1.5px var(--kid-dark); }
+.app-shell.view-kids .tile-vslider span { color: var(--kid-dark); font-weight: 700; z-index: 1; }
 .app-shell.view-kids .hd-item:nth-child(6n+1) { --kid-fill: #ff8f3b; }
 .app-shell.view-kids .hd-item:nth-child(6n+2) { --kid-fill: #20c997; }
 .app-shell.view-kids .hd-item:nth-child(6n+3) { --kid-fill: #339af0; }
@@ -173,7 +181,7 @@ export const themeKids = String.raw`
 /* Section titles in the grid: header-style ink with a candy underline, and a white field when renamed. */
 .app-shell.view-kids .hd-section { font-weight: 700; letter-spacing: .06em; }
 .app-shell.view-kids .hd-section::after { background: repeating-linear-gradient(90deg, var(--kid-head) 0 10px, transparent 10px 18px); opacity: .45; height: 3px; border-radius: 3px; }
-.app-shell.view-kids .hd-section input { background: #fff; color: var(--kid-dark); text-shadow: none; border: var(--kid-edge) solid var(--kid-dark); border-radius: calc(var(--u)*1.4); }
+.app-shell.view-kids .hd-section input { background: #fff; color: var(--kid-dark); text-shadow: none; border: var(--kid-edge) solid var(--kid-dark); border-radius: calc(var(--u)*1.4*var(--hd-r,1)); }
 
 /* Camera cards: the picture fills them, so they keep a dark base and white text over its shade. */
 .app-shell.view-kids .camera-tile { background: #2b2140; }
@@ -233,7 +241,7 @@ export const themeKids = String.raw`
 /* The room's options above its devices: a sheet of cream paper, so its text reads over any scene. */
 .app-shell.view-kids .screen .room-options {
   --ink: var(--kid-dark); --ink-2: rgba(35,27,61,.72); --ink-3: rgba(35,27,61,.58); --line: rgba(35,27,61,.16); --glass: rgba(35,27,61,.06);
-  color: var(--kid-dark); padding: calc(var(--u)*2.2); border-radius: calc(var(--u)*3.4);
+  color: var(--kid-dark); padding: calc(var(--u)*2.2); border-radius: calc(var(--u)*3.4*var(--hd-r,1));
   background: radial-gradient(circle at 100% 0%, rgba(255,212,59,.25) 0 14%, transparent 15%), linear-gradient(180deg, #fffdf8, #fff6e0);
   border: var(--kid-edge) solid var(--kid-dark); box-shadow: inset 0 calc(var(--u)*.5) 0 #fff, 0 calc(var(--u)*.8) 0 var(--kid-shadow);
 }
@@ -250,7 +258,7 @@ export const themeKids = String.raw`
 .app-shell.view-kids .hd-sizemenu__option { background: radial-gradient(circle at 35% 30%, #fff 0 30%, #f1ecf8 100%); color: var(--kid-dark); border: 2px solid var(--kid-dark); box-shadow: 0 2px 0 var(--kid-shadow); backdrop-filter: none; }
 .app-shell.view-kids .hd-sizemenu__option--on { background: radial-gradient(circle at 35% 30%, #fff6c4 0 25%, #ffd43b 100%); }
 /* The "add devices" tile and the hidden ones: a dashed white well, candy pills. */
-.app-shell.view-kids .hd-add-tile { background: rgba(255,253,248,.85); border: var(--kid-edge) dashed rgba(35,27,61,.45); color: var(--kid-dark); font-weight: 700; border-radius: calc(var(--u)*3.4); }
+.app-shell.view-kids .hd-add-tile { background: rgba(255,253,248,.85); border: var(--kid-edge) dashed rgba(35,27,61,.45); color: var(--kid-dark); font-weight: 700; border-radius: calc(var(--u)*3.4*var(--hd-r,1)); }
 .app-shell.view-kids .hd-add-tile span { background: radial-gradient(circle at 32% 28%, #fff 0 9%, #fff3bf 16%, #ffd43b 52%, #e0a800 100%); color: var(--kid-dark); border: var(--kid-edge) solid var(--kid-dark); }
 .app-shell.view-kids .screen :is(.hd-hidden-tray button, .hd-pill) { background: linear-gradient(180deg, #fff, #f6f1e8); color: var(--kid-dark); border: var(--kid-edge) solid var(--kid-dark); box-shadow: 0 calc(var(--u)*.35) 0 var(--kid-shadow); backdrop-filter: none; -webkit-backdrop-filter: none; font-weight: 700; }
 .app-shell.view-kids .screen--editing .hd-item:not(.hd-item--section) > :first-child { outline: none; }
@@ -265,7 +273,7 @@ export const themeKids = String.raw`
   --kid: #ffd43b; --kid-soft: #fff3bf; --btn: #fffdf8;
   color: var(--kid-dark);
   background: radial-gradient(circle at 100% 0%, rgba(255,212,59,.28) 0 18%, transparent 19%), radial-gradient(circle at 0% 100%, rgba(116,192,252,.22) 0 22%, transparent 23%), linear-gradient(180deg, #fffdf8, #fff6e0);
-  border: calc(var(--u)*.45) solid var(--kid-dark); border-radius: calc(var(--u)*4.4);
+  border: calc(var(--u)*.45) solid var(--kid-dark); border-radius: calc(var(--u)*4.4*var(--hd-r,1));
   box-shadow: inset 0 calc(var(--u)*.6) 0 #fff, 0 calc(var(--u)*1.2) 0 var(--kid-shadow), 0 calc(var(--u)*3) calc(var(--u)*6) rgba(35,27,61,.25);
   backdrop-filter: none; -webkit-backdrop-filter: none;
   animation: kid-sheet .45s var(--kid-spring);
@@ -304,7 +312,7 @@ export const themeKids = String.raw`
 .app-shell.view-kids .hd-sheet .hd-search { background: #fff; border: var(--kid-edge) solid rgba(35,27,61,.35); color: var(--kid-dark); }
 .app-shell.view-kids .hd-sheet .hd-search input { color: var(--kid-dark); }
 .app-shell.view-kids .hd-sheet .hd-search input::placeholder { color: rgba(35,27,61,.5); }
-.app-shell.view-kids .hd-sheet .hd-picker__row { border-radius: calc(var(--u)*2); }
+.app-shell.view-kids .hd-sheet .hd-picker__row { border-radius: calc(var(--u)*2*var(--hd-r,1)); }
 .app-shell.view-kids .hd-sheet .hd-picker__row:hover { background: rgba(255,212,59,.18); }
 .app-shell.view-kids .hd-sheet .hd-picker__icon { background: radial-gradient(circle at 32% 28%, #fff 0 9%, #fff3bf 18%, #ffe58a 60%, #f2c94c 100%); color: var(--kid-dark); border: 2px solid var(--kid-dark); }
 .app-shell.view-kids .hd-sheet .hd-picker__row--on .hd-picker__icon { background: radial-gradient(circle at 32% 28%, #fff 0 9%, #ffe58a 18%, #ffd43b 60%, #e0a800 100%); }
@@ -324,12 +332,12 @@ export const themeKids = String.raw`
 .app-shell.view-kids .hd-sheet .hd-segment { background: rgba(35,27,61,.08); border: var(--kid-edge) solid var(--kid-dark); }
 .app-shell.view-kids .hd-sheet .hd-segment button { color: var(--kid-dark); }
 .app-shell.view-kids .hd-sheet .hd-swatches button { border: var(--kid-edge) solid var(--kid-dark); box-shadow: 0 calc(var(--u)*.35) 0 var(--kid-shadow); }
-.app-shell.view-kids .hd-sheet :is(.room-options, .hd-detail__options) { background: rgba(255,255,255,.7); border: var(--kid-edge) solid rgba(35,27,61,.2); border-radius: calc(var(--u)*2.6); }
+.app-shell.view-kids .hd-sheet :is(.room-options, .hd-detail__options) { background: rgba(255,255,255,.7); border: var(--kid-edge) solid rgba(35,27,61,.2); border-radius: calc(var(--u)*2.6*var(--hd-r,1)); }
 /* Groups inside a group: no second frame, just a soft divider. */
 .app-shell.view-kids .hd-sheet :is(.room-options, .hd-detail__options) :is(.room-options, .hd-rules, .hd-links-editor, .hd-detail__options) { background: none; border: 0; border-radius: 0; box-shadow: none; padding-inline: 0; }
 .app-shell.view-kids .hd-sheet :is(.room-options, .hd-detail__options) > * + :is(.hd-rules, .hd-links-editor, .room-options) { border-top: 2px dashed rgba(35,27,61,.15); padding-top: calc(var(--u)*1.6); }
 .app-shell.view-kids .hd-sheet .hd-links-editor__item { background: #fff; border: 2px solid rgba(35,27,61,.25); }
-.app-shell.view-kids .hd-sheet :is(input[type="text"], input[type="number"], input:not([type]), input[type="time"], textarea, .st-input) { background: #fff; color: var(--kid-dark); border: var(--kid-edge) solid rgba(35,27,61,.35); border-radius: calc(var(--u)*1.4); }
+.app-shell.view-kids .hd-sheet :is(input[type="text"], input[type="number"], input:not([type]), input[type="time"], textarea, .st-input) { background: #fff; color: var(--kid-dark); border: var(--kid-edge) solid rgba(35,27,61,.35); border-radius: calc(var(--u)*1.4*var(--hd-r,1)); }
 
 /* Reminders: each item a white card with the outline, the check a ring you can see. */
 .app-shell.view-kids .hd-todo__item { background: #fff; color: var(--kid-dark); border: 2px solid rgba(35,27,61,.18); box-shadow: 0 calc(var(--u)*.35) 0 rgba(35,27,61,.12); }
@@ -366,11 +374,11 @@ ${Array.from({ length: 16 }, (_, n) => `.app-shell.view-kids .screen:not(.screen
 /* A tap squishes the card. */
 .app-shell.view-kids .screen:not(.screen--editing) :is(.room-card, .device-tile, .widget-card):active { transform: scale(.95) translateY(calc(var(--u)*.4)); box-shadow: 0 calc(var(--u)*.4) 0 var(--kid-shadow); }
 /* What is on wiggles now and then, and a ring of stars pops when it turns on. */
-.app-shell.view-kids .screen:not(.screen--editing) :is(.device-tile--active .device-tile__icon, .room-card--active .room-card__icon) { animation: kid-wiggle 3.4s ease-in-out 1s infinite; }
+.app-shell.view-kids.hd-anim .screen:not(.screen--editing) :is(.device-tile--active .device-tile__icon, .room-card--active .room-card__icon) { animation: kid-wiggle 3.4s ease-in-out 1s infinite; }
 .app-shell.view-kids :is(.device-tile__icon, .room-card__icon) { position: relative; }
 /* Sparkles when something turns on: a ring of outlined dots that opens from behind the icon. It starts
    already outside the icon's outline and only grows, so it never crosses or covers it. */
-.app-shell.view-kids .screen:not(.screen--editing) :is(.device-tile--active .device-tile__icon, .room-card--active .room-card__icon)::after {
+.app-shell.view-kids.hd-anim .screen:not(.screen--editing) :is(.device-tile--active .device-tile__icon, .room-card--active .room-card__icon)::after {
   content: ""; position: absolute; inset: -60%; z-index: -1; pointer-events: none; border-radius: 50%;
   background: radial-gradient(circle, #fff 0 34%, #231b3d 35% 50%, transparent 52%) 50% 0/16% 16% no-repeat,
     radial-gradient(circle, #fff 0 34%, #231b3d 35% 50%, transparent 52%) 85% 15%/16% 16% no-repeat,
@@ -561,7 +569,7 @@ ${Array.from({ length: 16 }, (_, n) => `.app-shell.view-kids .screen:not(.screen
 .onboarding-screen .st-kids-scenes { --u: 7px; --on: #ffd43b; }
 :is(.app-shell, .onboarding-screen) .st-kids-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); gap: calc(var(--u)*1.2); }
 :is(.app-shell, .onboarding-screen) .st-kids-scenes button { position: relative; display: grid; gap: calc(var(--u)*.8); padding: 0; border: 0; background: none; color: inherit; font: 600 calc(var(--u)*1.8)/1.2 var(--f-body); text-align: left; cursor: pointer; }
-:is(.app-shell, .onboarding-screen) .st-kids-scenes .st-kids-scene { position: relative; display: block; height: calc(var(--u)*11); border-radius: calc(var(--u)*2); overflow: hidden; border: 3px solid transparent; transform: translateZ(0); }
+:is(.app-shell, .onboarding-screen) .st-kids-scenes .st-kids-scene { position: relative; display: block; height: calc(var(--u)*11); border-radius: calc(var(--u)*2*var(--hd-r,1)); overflow: hidden; border: 3px solid transparent; transform: translateZ(0); }
 :is(.app-shell, .onboarding-screen) .st-kids-scene--sky { background: radial-gradient(circle at 82% 18%, #ffd43b 0 14%, transparent 15%), radial-gradient(ellipse at 30% 40%, #fff 0 16%, transparent 17%), radial-gradient(ellipse at 120% 120%, #51cf66 0 45%, transparent 46%), radial-gradient(ellipse at -10% 125%, #8ce99a 0 50%, transparent 51%), linear-gradient(180deg, #5cc8ff, #d9f4ff); }
 :is(.app-shell, .onboarding-screen) .st-kids-scene--ocean { background: radial-gradient(circle at 20% 70%, rgba(255,255,255,.7) 0 4%, transparent 5%), radial-gradient(circle at 34% 45%, rgba(255,255,255,.6) 0 3%, transparent 4%), radial-gradient(circle at 70% 60%, rgba(255,255,255,.6) 0 5%, transparent 6%), radial-gradient(ellipse at 50% 130%, #f3d9a4 0 40%, transparent 41%), linear-gradient(180deg, #3fd0e0, #136f9e); }
 :is(.app-shell, .onboarding-screen) .st-kids-scene--space { background: radial-gradient(circle at 74% 34%, #ff8fab 0 15%, transparent 16%), radial-gradient(circle at 18% 72%, #e9ecef 0 10%, transparent 11%), radial-gradient(circle at 40% 20%, #fff 0 1.5%, transparent 2%), radial-gradient(circle at 60% 80%, #fff 0 1.5%, transparent 2%), radial-gradient(circle at 12% 30%, #fff 0 1.5%, transparent 2%), radial-gradient(120% 90% at 70% 20%, #4b3a9b, #120c33); }
@@ -569,4 +577,11 @@ ${Array.from({ length: 16 }, (_, n) => `.app-shell.view-kids .screen:not(.screen
 :is(.app-shell, .onboarding-screen) .st-kids-scene--road { background: radial-gradient(circle at 84% 22%, #ffd43b 0 11%, transparent 12%), linear-gradient(#ff6b6b, #ff6b6b) 22% 76%/22% 10% no-repeat, linear-gradient(#ffd43b, #ffd43b) 66% 88%/20% 9% no-repeat, linear-gradient(90deg, #fff3bf 0 20%, transparent 20% 40%) 0 84%/40% 3% repeat-x, linear-gradient(180deg, transparent 68%, #495057 68%), radial-gradient(ellipse at 30% 100%, #69db7c 0 30%, transparent 31%) 0 0/100% 70% no-repeat, radial-gradient(ellipse at 80% 100%, #8ce99a 0 34%, transparent 35%) 0 0/100% 70% no-repeat, linear-gradient(180deg, #4dabf7, #e7f5ff); }
 :is(.app-shell, .onboarding-screen) .st-kids-scene--candy { background: radial-gradient(circle at 50% 120%, transparent 0 34%, #b197fc 35% 39%, #4dabf7 40% 44%, #69db7c 45% 49%, #ffd43b 50% 54%, #ffa94d 55% 59%, #ff6b6b 60% 64%, transparent 65%), linear-gradient(180deg, #ffd6ec, #cfe8ff); }
 :is(.app-shell, .onboarding-screen) .st-kids-scenes button[aria-pressed="true"] .st-kids-scene { border-color: var(--on); }
+
+/* Screensaver: the same rounded, bold game type as Home, white with the dark outline and a solid drop. */
+.app-shell.view-kids .hd-saver { --kid-outline: 0 0 0 transparent; }
+.app-shell.view-kids :is(.hd-saver__time, .hd-saver__stat b) { font-family: var(--f-display); font-weight: 700; letter-spacing: 0; color: #fff; text-shadow: -2px -2px 0 var(--kid-dark), 2px -2px 0 var(--kid-dark), -2px 2px 0 var(--kid-dark), 2px 2px 0 var(--kid-dark), 0 .07em 0 var(--kid-dark); }
+.app-shell.view-kids :is(.hd-saver__date, .hd-saver__weather, .hd-saver__rooms, .hd-saver__stat span, .hd-saver__season) { font-family: var(--f-body); font-weight: 700; letter-spacing: .04em; color: #fff; opacity: 1; text-shadow: -1.5px -1.5px 0 var(--kid-dark), 1.5px -1.5px 0 var(--kid-dark), -1.5px 1.5px 0 var(--kid-dark), 1.5px 1.5px 0 var(--kid-dark), 0 3px 0 var(--kid-dark); }
+.app-shell.view-kids .hd-saver__rooms b { font-weight: 700; }
+.app-shell.view-kids .hd-saver__hint { font-family: var(--f-body); font-weight: 700; }
 `;

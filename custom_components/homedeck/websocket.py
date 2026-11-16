@@ -1,5 +1,10 @@
 """Local WebSocket API for HomeDeck."""
 
+import base64
+import binascii
+import re
+import secrets
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
@@ -27,6 +32,7 @@ from .license import (
     async_refresh,
 )
 from .notices import SIGNAL_DISMISSED, async_dismiss, async_dismissed
+from .frontend import PLANS_DIR, PLANS_URL
 from .storage import async_load_config, async_save_config, normalize_config
 
 _COMMANDS_REGISTERED = "commands_registered"
@@ -255,6 +261,65 @@ async def websocket_notices_dismiss(
     connection.send_result(msg["id"], {"dismissed": await async_dismiss(hass, msg["entity_id"])})
 
 
+_PLAN_MAX_BYTES = 8 * 1024 * 1024
+_PLAN_TYPES = ((b"\x89PNG\r\n\x1a\n", "png"), (b"\xff\xd8\xff", "jpg"))
+
+
+def _plan_type(data: bytes) -> str | None:
+    """PNG, JPEG or WebP, told by the file's first bytes (never by what the browser says)."""
+    for magic, extension in _PLAN_TYPES:
+        if data.startswith(magic):
+            return extension
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/floorplan/upload",
+        vol.Required("floor"): vol.All(str, vol.Length(min=1, max=64)),
+        vol.Required("data"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_floorplan_upload(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Save a floor's plan image (Pro, administrators) and return the address it is served from."""
+    if not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Only administrators can change the floor plan")
+        return
+    if not await async_is_pro(hass):
+        connection.send_error(msg["id"], "pro_required", "The floor plan is a Pro feature")
+        return
+    raw = msg["data"].split(",", 1)[1] if msg["data"].startswith("data:") else msg["data"]
+    try:
+        data = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError):
+        connection.send_error(msg["id"], "invalid_image", "The image could not be read")
+        return
+    extension = _plan_type(data)
+    if extension is None or len(data) > _PLAN_MAX_BYTES:
+        connection.send_error(msg["id"], "invalid_image", "Send a PNG, JPEG or WebP image up to 8 MB")
+        return
+    floor = re.sub(r"[^a-z0-9_-]", "-", msg["floor"].lower())[:40] or "home"
+    name = f"floorplan-{floor}-{secrets.token_hex(6)}.{extension}"
+    folder = Path(hass.config.path(*PLANS_DIR))
+
+    def write() -> None:
+        folder.mkdir(parents=True, exist_ok=True)
+        # One image per floor: the previous one goes when a new one arrives.
+        for old in folder.glob(f"floorplan-{floor}-*"):
+            old.unlink(missing_ok=True)
+        (folder / name).write_bytes(data)
+
+    await hass.async_add_executor_job(write)
+    connection.send_result(msg["id"], {"url": f"{PLANS_URL}/{name}"})
+
+
 def async_register_websocket_commands(hass: HomeAssistant) -> None:
     """Register HomeDeck commands once per Home Assistant process."""
     domain_data = hass.data.setdefault(DOMAIN, {})
@@ -273,4 +338,5 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_feedback)
     websocket_api.async_register_command(hass, websocket_notices_subscribe)
     websocket_api.async_register_command(hass, websocket_notices_dismiss)
+    websocket_api.async_register_command(hass, websocket_floorplan_upload)
     domain_data[_COMMANDS_REGISTERED] = True

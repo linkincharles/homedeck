@@ -1,3 +1,4 @@
+import { isRecentMediaSensor } from "../components/RecentMedia";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
@@ -19,7 +20,7 @@ import { SeasonPreview } from "../components/SeasonLayer";
 import type { Room } from "../types/discovery";
 import type { HomeAssistant } from "../types/home-assistant";
 import { hideSidebarPreferred, setHideSidebarPreferred } from "../sidebar";
-import { childLockEnabled, setChildLockEnabled, deviceBackground, deviceKidsScene, deviceViewMode, editingLocked, keepAwakeMode, setDeviceBackground, setDeviceKidsScene, setDeviceViewMode, setEditingLocked, setKeepAwakeMode, setSpotifySpeaker, spotifySpeaker, useDevicePref } from "../devicePrefs";
+import { fontSize, setFontSize, setUiSize, uiSize, type SizeChoice, childLockEnabled, keyBar, KEYBAR_SLOTS, motionPrefs, setChildLockEnabled, setKeyBar, setMotionPrefs, deviceBackground, deviceKidsScene, deviceViewMode, editingLocked, keepAwakeMode, setDeviceBackground, setDeviceKidsScene, setDeviceViewMode, setEditingLocked, setKeepAwakeMode, setSpotifySpeaker, spotifySpeaker, useDevicePref } from "../devicePrefs";
 import { isSilk } from "../keepAwake";
 import { deactivateLicense, getLicense, openPortal, type LicenseStatus } from "../api/license";
 import { LICENSE_ERRORS } from "../components/ProSheet";
@@ -136,7 +137,6 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
   }));
   const [draft, setDraft] = useState<HomeDeckConfig>(initial);
   const [saving, setSaving] = useState(false);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
   // Every weather service, including those that are down, so a broken one can be seen and replaced.
   const weatherEntities = useMemo(() => Object.values(hass.states).filter((state) => state.entity_id.startsWith("weather.")), [hass.states]);
 
@@ -155,7 +155,28 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
   const save = async (next = draft) => {
     if (next.selected_rooms.length === 0) return;
     setSaving(true);
-    try { await onSave({ ...next, pages: next.pages.map((page) => page.title.trim() ? page : { ...page, title: t("newPage") }) }); } finally { setSaving(false); }
+    try {
+      await onSave({ ...next, pages: next.pages.map((page) => page.title.trim() ? page : { ...page, title: t("newPage") }) });
+      saved.current = JSON.stringify(next);
+      setSaveState("saved");
+    } catch {
+      setSaveState("failed");
+    } finally { setSaving(false); }
+  };
+  // Every change is saved on its own a moment after it is made (no Save button); closing saves what is left.
+  const saved = useRef(JSON.stringify(initial));
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "failed">("idle");
+  const pending = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (JSON.stringify(draft) === saved.current) return;
+    window.clearTimeout(pending.current);
+    pending.current = window.setTimeout(() => { pending.current = undefined; void save(draft); }, 600);
+    return () => window.clearTimeout(pending.current);
+  }, [draft]);
+  const close = async () => {
+    window.clearTimeout(pending.current);
+    if (JSON.stringify(draft) !== saved.current) await save(draft).catch(() => undefined);
+    onClose();
   };
 
   // On the free plan the list edits the free choice; the full selection stays for Pro.
@@ -208,9 +229,8 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
     <header className="st-header">
       <div><span className="eyebrow">{t("appName")}</span><h1>{t("settings")}</h1><p>{t("settingsDescription")}</p></div>
       <div className="st-header__actions">
-        {dirty && <span className="st-dirty">{t("unsavedChanges")}</span>}
-        <button className="hd-pill hd-pill--solid" disabled={!dirty || saving || selected.length === 0} onClick={() => void save()} type="button"><HDIcon name="check" size={16} />{saving ? t("saving") : t("save")}</button>
-        <button aria-label={t("close")} className="hd-close" onClick={onClose} type="button"><HDIcon name="close" size={20} /></button>
+        {(saving || saveState !== "idle") && <span className={`st-saved${saveState === "failed" && !saving ? " st-saved--failed" : ""}`} role="status">{saving ? t("saving") : saveState === "failed" ? t("settingsNotSaved") : <><HDIcon name="check" size={14} />{t("settingsAutoSaved")}</>}</span>}
+        <button aria-label={t("close")} className="hd-close" onClick={() => void close()} type="button"><HDIcon name="close" size={20} /></button>
       </div>
     </header>
 
@@ -248,12 +268,10 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
           {draft.view_mode === "kids" && <section className="st-panel">
             <h2>{t("kidsBackground")}</h2><p>{t("kidsBackgroundDescription")}</p>
             <div className="st-kids-scenes">{KIDS_SCENES.map(([scene, label]) => <button aria-pressed={(draft.kids_background ?? "sky") === scene} key={scene} onClick={() => update({ kids_background: scene })} type="button"><span className={`st-kids-scene st-kids-scene--${scene}`} /><span>{t(label)}</span></button>)}</div>
-            <Row label={t("animateBackground")}><Switch checked={draft.background.animated} label={t("animateBackground")} onChange={(animated) => update({ background: { ...draft.background, animated } })} /></Row>
           </section>}
           {draft.view_mode !== "kids" && <section className="st-panel">
             <h2>{t("background")}</h2><p>{t("lightsOnly")}</p>
             <div className="st-backgrounds">{BACKGROUNDS.map(([preset, label, preview]) => <button aria-pressed={draft.background.preset === preset} key={preset} onClick={() => (locked(!FREE_BACKGROUNDS.includes(preset)) ? plan.upsell("feature") : update({ background: { ...draft.background, preset } }))} type="button"><i style={{ background: preview }}>{locked(!FREE_BACKGROUNDS.includes(preset)) && <Lock />}</i><b>{t(label)}</b><small>{locked(!FREE_BACKGROUNDS.includes(preset)) ? "Pro" : preset.startsWith("adaptive_") ? t("automatic") : t("fixedBackground")}</small></button>)}</div>
-            <Row label={t("animateBackground")}><Switch checked={draft.background.animated} label={t("animateBackground")} onChange={(animated) => update({ background: { ...draft.background, animated } })} /></Row>
           </section>}
           <CardStylePanel cards={draft.cards} kids={draft.view_mode === "kids"} locked={!plan.pro} onChange={(cards) => update({ cards })} onUpsell={() => plan.upsell("feature")} t={t} />
           <section className="st-panel">
@@ -278,9 +296,11 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
           <section className="st-panel">
             <h2>{t("headerInfo")}</h2>
             <Row label={t("showClock")}><Switch checked={draft.home.show_clock} label={t("showClock")} onChange={(show_clock) => update({ home: { ...draft.home, show_clock } })} /></Row>
+            <Row description={t("clockFormatDescription")} label={t("clockFormat")}><HDSegmented ariaLabel={t("clockFormat")} onChange={(clock) => update({ preferences: { ...draft.preferences, clock } })} options={[{ value: "auto", label: t("automatic") }, { value: "24", label: "24 h" }, { value: "12", label: "12 h" }]} value={["24", "12"].includes(draft.preferences.clock) ? draft.preferences.clock : "auto"} /></Row>
             <Row label={t("showWeather")}><Switch checked={draft.home.show_weather} label={t("showWeather")} onChange={(show_weather) => update({ home: { ...draft.home, show_weather } })} /></Row>
             <Row label={t("showPresence")}><Switch checked={draft.home.show_presence} label={t("showPresence")} onChange={(show_presence) => update({ home: { ...draft.home, show_presence } })} /></Row>
             {draft.home.show_presence && <PresencePeople chosen={draft.home.presence_people ?? []} hass={hass} onChange={(presence_people) => update({ home: { ...draft.home, presence_people } })} t={t} />}
+            <Row description={t("haNotificationsDescription")} label={t("haNotificationsSetting")}><Switch checked={Boolean(draft.home.ha_notifications)} label={t("haNotificationsSetting")} onChange={(ha_notifications) => update({ home: { ...draft.home, ha_notifications } })} /></Row>
           </section>
           <NoticesPanel hass={hass} home={draft.home} language={language} onChange={(patch) => update({ home: { ...draft.home, ...patch } })} t={t} />
           <section className="st-panel">
@@ -297,6 +317,8 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
         {section === "weather" && <section className="st-panel">
             <h2>{t("weatherForecast")}</h2><p>{t("weatherSourceDescription")}</p>
             <Row label={t("weatherSource")}><HDSelect ariaLabel={t("weatherSource")} onChange={(entity_id) => update({ weather: { ...draft.weather, entity_id } })} options={[{ value: "auto", label: t("automatic") }, { value: OPEN_METEO, label: t("openMeteoSource") }, ...weatherEntities.map((entity) => ({ value: entity.entity_id, label: `${String(entity.attributes.friendly_name ?? entity.entity_id)}${["unknown", "unavailable"].includes(entity.state) ? ` · ${t("unavailable")}` : ""}` }))]} value={draft.weather.entity_id === OPEN_METEO || weatherEntities.some((entity) => entity.entity_id === draft.weather.entity_id) ? draft.weather.entity_id : "auto"} /></Row>
+            <Row description={t("headerDaysDescription")} label={t("headerDays")}><HDSegmented ariaLabel={t("headerDays")} onChange={(days) => update({ weather: { ...draft.weather, header_days: Number(days) } })} options={[{ value: "0", label: t("humidityNone") }, { value: "3", label: "3" }, { value: "5", label: "5" }]} value={String(draft.weather.header_days ?? 0)} /></Row>
+            {([["outdoor_temperature", "outdoorTemperature", "temperature"], ["outdoor_humidity", "outdoorHumidity", "humidity"]] as const).map(([key, label, kind]) => <Row description={t(`${label}Description`)} key={key} label={t(label)}><HDSelect ariaLabel={t(label)} onChange={(sensor) => update({ weather: { ...draft.weather, [key]: sensor || undefined } })} options={[{ value: "", label: t("outdoorFromWeather") }, ...Object.values(hass.states).filter((state) => state.entity_id.startsWith("sensor.") && state.attributes.device_class === kind).sort((a, b) => Number(/outdoor|outside|extern|exterior|esterno|aussen|außen|rua|quintal/i.test(`${b.entity_id} ${b.attributes.friendly_name ?? ""}`)) - Number(/outdoor|outside|extern|exterior|esterno|aussen|außen|rua|quintal/i.test(`${a.entity_id} ${a.attributes.friendly_name ?? ""}`)) || String(a.attributes.friendly_name ?? a.entity_id).localeCompare(String(b.attributes.friendly_name ?? b.entity_id))).map((state) => ({ value: state.entity_id, label: String(state.attributes.friendly_name ?? state.entity_id) }))]} value={draft.weather[key] ?? ""} /></Row>)}
           </section>}
 
         {section === "agenda" && <>
@@ -333,6 +355,9 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
               {on && selected.length > 1 && <span aria-label={`${t("dragToReorder")}: ${name}`} className="st-grip" onPointerCancel={endDrag} onPointerDown={(event) => startDrag(event, room.id)} onPointerMove={moveDrag} onPointerUp={endDrag} role="img"><HDIcon name="grip" size={18} /></span>}
             </div>;
           })}</div>
+          <Row description={t("roomScenesDescription")} label={t("roomScenes")}><Switch checked={Boolean(draft.room_scenes)} label={t("roomScenes")} onChange={(room_scenes) => update({ room_scenes })} /></Row>
+          <Row description={t("roomSensorsDescription")} label={t("roomSensors")}><Switch checked={Boolean(draft.room_sensors)} label={t("roomSensors")} onChange={(room_sensors) => update({ room_sensors })} /></Row>
+          <Row description={t("roomsByFloorDescription")} label={t("roomsByFloor")}><Switch checked={Boolean(draft.rooms_by_floor)} label={t("roomsByFloor")} onChange={(rooms_by_floor) => update({ rooms_by_floor })} /></Row>
         </section>}
 
         {section === "navigation" && (() => {
@@ -348,6 +373,21 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
             <Row description={missing(draft.navigation.media, found.hasMedia, "navNoMedia")} label={t("media")}><Switch checked={draft.navigation.media} label={t("media")} onChange={(media) => update({ navigation: { ...draft.navigation, media } })} /></Row>
             <Row description={missing(draft.navigation.security, found.hasSecurity, "navNoSecurity")} label={t("security")}><Switch checked={draft.navigation.security} label={t("security")} onChange={(security) => update({ navigation: { ...draft.navigation, security } })} /></Row>
             <Row description={missing(Boolean(draft.navigation.cameras), found.hasCameras, "navNoCameras")} label={t("camerasTitle")}><Switch checked={Boolean(draft.navigation.cameras)} label={t("camerasTitle")} onChange={(cameras) => update({ navigation: { ...draft.navigation, cameras } })} /></Row>
+            <Row description={t("floorplanDescription")} label={t("floorplan")}>{plan.pro ? <Switch checked={Boolean(draft.navigation.plan)} label={t("floorplan")} onChange={(on) => update({ navigation: { ...draft.navigation, plan: on } })} /> : <button className="hd-pill" onClick={() => plan.upsell("feature")} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
+            {plan.pro && draft.navigation.plan && <div className="st-sub"><label className="st-sub__row"><span>{t("floorplanName")}</span><input aria-label={t("floorplanName")} className="st-input st-input--framed" maxLength={30} onChange={(event) => update({ navigation: { ...draft.navigation, plan_title: event.target.value } })} placeholder={t("floorplanCardLabel")} value={draft.navigation.plan_title ?? ""} /></label></div>}
+          </section>
+          <section className="st-panel">
+            <h2>{t("panelStart")}</h2><p>{t("panelStartDescription")}</p>
+            <Row label={t("panelStart")}><HDSelect ariaLabel={t("panelStart")} onChange={(start) => update({ navigation: { ...draft.navigation, start: start === "home" ? undefined : start } })} options={[
+              { value: "home", label: t("home") },
+              ...(draft.navigation.rooms ? [{ value: "rooms", label: t("roomsPage") }] : []),
+              ...(draft.navigation.scenes ? [{ value: "scenes", label: t("scenes") }] : []),
+              ...(draft.navigation.media ? [{ value: "media", label: t("media") }] : []),
+              ...(draft.navigation.security ? [{ value: "security", label: t("security") }] : []),
+              ...(draft.navigation.cameras ? [{ value: "cameras", label: t("camerasTitle") }] : []),
+              ...(plan.pro && draft.navigation.plan ? [{ value: "plan", label: draft.navigation.plan_title || t("floorplan") }] : []),
+              ...(plan.pro ? draft.pages.map((page) => ({ value: page.id, label: page.title })) : []),
+            ]} value={draft.navigation.start ?? "home"} /></Row>
           </section>
           <section className="st-panel">
             <h2>{t("yourPages")}</h2><p>{t("pagesHint")}</p>
@@ -403,8 +443,7 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
 
         {section === "device" && <section className="st-panel">
           <h2>{t("sectionDevice")}</h2><p>{t("sectionDeviceDescription")}</p>
-          <Row description={t("hideHaSidebarDescription")} label={t("hideHaSidebar")}><Switch checked={hideHaSidebar} label={t("hideHaSidebar")} onChange={(hidden) => { setHideHaSidebar(hidden); setHideSidebarPreferred(hidden); }} /></Row>
-          <DevicePrefsRows general={draft.view_mode} generalBackground={draft.background.preset} generalKids={draft.kids_background ?? "sky"} hass={hass} pro={plan.pro} t={t} />
+          <DevicePrefsRows general={draft.view_mode} generalBackground={draft.background.preset} generalKids={draft.kids_background ?? "sky"} hass={hass} onUpsell={() => plan.upsell("feature")} pro={plan.pro} sidebarRow={<Row description={t("hideHaSidebarDescription")} label={t("hideHaSidebar")}><Switch checked={hideHaSidebar} label={t("hideHaSidebar")} onChange={(hidden) => { setHideHaSidebar(hidden); setHideSidebarPreferred(hidden); }} /></Row>} t={t} />
         </section>}
 
         {section === "system" && <StartScreenPanel hass={hass} t={t} />}
@@ -412,7 +451,8 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
         {section === "system" && <section className="st-panel">
           <h2>{t("sectionSystem")}</h2>
           <Row description={t("reloadDevicesDescription")} label={t("reloadDevices")}><button className="hd-pill" onClick={onReload} type="button"><HDIcon name="refresh" size={16} />{t("refresh")}</button></Row>
-          <Row description={t("restartSetupDescription")} label={t("restartSetup")}><button className="hd-pill" disabled={saving} onClick={() => void save({ ...draft, onboarding_complete: false })} type="button">{t("restartSetup")}</button></Row>
+          <BackupRows draft={draft} onImport={(imported) => setDraft((current) => ({ ...current, ...imported }))} t={t} version={version} />
+          <Row description={t("restartSetupDescription")} label={t("restartSetup")}><button className="hd-pill" disabled={saving} onClick={() => void save({ ...draft, onboarding_complete: false }).then(onClose)} type="button">{t("restartSetup")}</button></Row>
           <Row description={t("madeWith")} label={version ? t("version") : "HomeDeck"}>{version && <span className="st-value">{version}</span>}</Row>
         </section>}
       </section>
@@ -425,6 +465,45 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
       else update({ free_devices: [...current, id] });
     }} rooms={rooms.filter((room) => freeRoomIds(draft, rooms).includes(room.id))} selected={freeDevices(draft, rooms)} t={t} title={`${t("gateDevices")} · ${freeUsage(draft, rooms).devices} ${t("of")} ${plan.limits.devices}`} />}
   </main>;
+}
+
+/** A copy of the whole configuration in a file, and putting one back (after a second tap). License keys
+ * are not part of it; floor plan pictures stay on Home Assistant and are only referenced. */
+function BackupRows({ draft, onImport, t, version }: { draft: HomeDeckConfig; onImport: (config: Partial<HomeDeckConfig>) => void; t: (key: TranslationKey) => string; version?: string }) {
+  const [pending, setPending] = useState<Partial<HomeDeckConfig> | null>(null);
+  const [error, setError] = useState(false);
+  const file = useRef<HTMLInputElement>(null);
+  const exportFile = () => {
+    const blob = new Blob([JSON.stringify({ ...draft, homedeck_export: { version: version ?? "", date: new Date().toISOString() } }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `homedeck-config-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+  const read = (chosen?: File) => {
+    setError(false);
+    setPending(null);
+    if (!chosen) return;
+    void chosen.text().then((text) => {
+      const parsed = JSON.parse(text) as Partial<HomeDeckConfig> & { homedeck_export?: unknown };
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.selected_rooms) || typeof parsed.layouts !== "object") throw new Error("not a HomeDeck file");
+      const { homedeck_export: _info, ...config } = parsed;
+      setPending({ ...config, onboarding_complete: true });
+    }).catch(() => setError(true));
+  };
+  return <>
+    <Row description={t("backupExportDescription")} label={t("backupExport")}><button className="hd-pill" onClick={exportFile} type="button"><HDIcon name="arrow" size={16} />{t("backupExportAction")}</button></Row>
+    <Row description={error ? t("backupImportError") : pending ? t("backupImportConfirm") : t("backupImportDescription")} label={t("backupImport")}>
+      <input accept="application/json,.json" hidden onChange={(event) => { read(event.target.files?.[0]); event.target.value = ""; }} ref={file} type="file" />
+      {pending
+        ? <span className="hd-backup-confirm"><button className="hd-pill" onClick={() => setPending(null)} type="button">{t("cancel")}</button><button className="hd-pill hd-pill--danger" onClick={() => { onImport(pending); setPending(null); }} type="button">{t("backupImportApply")}</button></span>
+        : <button className="hd-pill" onClick={() => file.current?.click()} type="button"><HDIcon name="plus" size={16} />{t("backupImportAction")}</button>}
+    </Row>
+  </>;
 }
 
 function Range({ label, max, onChange, value, ends }: { label: string; max: number; onChange: (value: number) => void; value: number; ends: [string, string] }) {
@@ -444,8 +523,9 @@ function CardStylePanel({ cards, kids = false, locked, onChange, onUpsell, t }: 
       {!kids && <Row label={t("corners")}><Range ends={[t("cornersSquare"), t("cornersRound")]} label={t("corners")} max={150} onChange={(corners) => onChange({ ...cards, corners })} value={cards.corners} /></Row>}
       {!kids && <Row label={t("glass")}><Range ends={[t("glassSolid"), t("glassClear")]} label={t("glass")} max={100} onChange={(glass) => onChange({ ...cards, glass })} value={cards.glass} /></Row>}
       {!kids && <Row description={t("frameDescription")} label={t("frame")}><Switch checked={cards.frame} label={t("frame")} onChange={(frame) => onChange({ ...cards, frame })} /></Row>}
-      <Row description={t("animationsDescription")} label={t("animations")}><Switch checked={Boolean(cards.animations)} label={t("animations")} onChange={(animations) => onChange({ ...cards, animations })} /></Row>
+      {!kids && <Row description={t("shineDescription")} label={t("shine")}><Switch checked={Boolean(cards.shine)} label={t("shine")} onChange={(shine) => onChange({ ...cards, shine })} /></Row>}
       <Row description={t("sparklinesDescription")} label={t("sparklines")}><Switch checked={Boolean(cards.sparklines)} label={t("sparklines")} onChange={(sparklines) => onChange({ ...cards, sparklines })} /></Row>
+      <Row description={t("roomPowerDescription")} label={t("roomPower")}><Switch checked={cards.room_power !== false} label={t("roomPower")} onChange={(room_power) => onChange({ ...cards, room_power })} /></Row>
       <Row description={t("sensorSinceDescription")} label={t("sensorSince")}><Switch checked={Boolean(cards.sensor_since)} label={t("sensorSince")} onChange={(sensor_since) => onChange({ ...cards, sensor_since })} /></Row>
       <Row description={t("playersDescription")} label={t("players")}><Switch checked={cards.players !== false} label={t("players")} onChange={(players) => onChange({ ...cards, players })} /></Row>
     </fieldset>{locked && <button aria-label={t("proStyleLocked")} className="st-cards__lock" onClick={onUpsell} type="button" />}</div>
@@ -460,6 +540,7 @@ function ExtraCardsPanel({ draft, hass, onUpsell, pro, t, update }: { draft: Hom
   const candidates = useMemo(() => energyCandidates(hass), [hass.states]);
   const label = (id: string) => String(hass.states[id]?.attributes.friendly_name ?? id);
   const set = (patch: Partial<HomeDeckConfig["widgets"]>) => update({ widgets: { ...widgets, ...patch } });
+  const recentSensors = useMemo(() => Object.values(hass.states).filter(isRecentMediaSensor).sort((a, b) => String(a.attributes.friendly_name ?? a.entity_id).localeCompare(String(b.attributes.friendly_name ?? b.entity_id))), [hass.states]);
   const turnOnEnergy = (on: boolean) => {
     if (on && !pro) { onUpsell(); return; }
     // The first time, each field starts with the sensor that best fits it.
@@ -481,8 +562,26 @@ function ExtraCardsPanel({ draft, hass, onUpsell, pro, t, update }: { draft: Hom
         {fields.map(([key, name]) => <div className="st-sub__row" key={key}><span>{t(name)}</span><HDSelect ariaLabel={t(name)} onChange={(id) => update({ energy: { ...energy, [key]: id } })} options={[{ value: "", label: t("none") }, ...[...new Set([...(energy[key] ? [energy[key]] : []), ...candidates[key].map((state) => state.entity_id)])].map((id) => ({ value: id, label: label(id) }))]} value={energy[key]} /></div>)}
       </div>}
     </div>
+    <Row description={t("floorplanCardDescription")} label={t("floorplanCard")}>{pro ? <Switch checked={Boolean(widgets.plan)} label={t("floorplanCard")} onChange={(plan) => set({ plan })} /> : <button className="hd-pill" onClick={onUpsell} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
+    <div className="st-group">
+      <Row description={t("recentMediaDescription")} label={t("recentMediaCard")}>{pro ? <Switch checked={Boolean(widgets.recent)} label={t("recentMediaCard")} onChange={(recent) => set({ recent })} /> : <button className="hd-pill" onClick={onUpsell} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
+      {pro && widgets.recent && <div className="st-sub">
+        {recentSensors.length === 0 && <p className="st-note">{t("recentMediaNone")}</p>}
+        {recentSensors.length > 0 && [0, 1, 2].slice(0, Math.min(3, (draft.recent_media ?? []).length + 1)).map((slot) => <div className="st-sub__row" key={slot}><span>{t("saverTempsSensor").replace("{n}", String(slot + 1))}</span><HDSelect ariaLabel={t("saverTempsSensor").replace("{n}", String(slot + 1))} onChange={(id) => { const list = [...(draft.recent_media ?? [])]; if (id) list[slot] = id; else list.splice(slot, 1); update({ recent_media: [...new Set(list.filter(Boolean))] }); }} options={[{ value: "", label: t("none") }, ...recentSensors.map((state) => ({ value: state.entity_id, label: String(state.attributes.friendly_name ?? state.entity_id) }))]} value={(draft.recent_media ?? [])[slot] ?? ""} /></div>)}
+      </div>}
+    </div>
     <BinsSettings bins={draft.bins ?? []} enabled={Boolean(widgets.bins)} hass={hass} onBins={(bins) => update({ bins })} onEnabled={(on) => { set({ bins: on }); if (on && (draft.bins ?? []).length === 0) update({ widgets: { ...widgets, bins: true }, bins: [{ entity: "", name: "", color: "black" }] }); }} onUpsell={onUpsell} pro={pro} t={t} />
   </section>;
+}
+
+/** A sensor's attributes that may tell the collection day: plain values, without HA's own bookkeeping. */
+const BIN_SKIP = new Set(["friendly_name", "icon", "unit_of_measurement", "device_class", "state_class", "attribution", "entity_picture", "supported_features", "restored", "assumed_state"]);
+function binAttributes(hass: HomeAssistant, entityId: string): Array<[string, string]> {
+  const attributes = hass.states[entityId]?.attributes ?? {};
+  return Object.entries(attributes)
+    .filter(([key, value]) => !BIN_SKIP.has(key) && (typeof value === "string" || typeof value === "number") && String(value).length > 0)
+    .slice(0, 40)
+    .map(([key, value]) => [key, String(value).length > 32 ? `${String(value).slice(0, 31)}…` : String(value)]);
 }
 
 const BIN_WORDS = /waste|bin|trash|garbage|recycl|m[uü]ll|abfall|tonne|lixo|coleta|basura|odpad/i;
@@ -490,17 +589,19 @@ const BIN_WORDS = /waste|bin|trash|garbage|recycl|m[uü]ll|abfall|tonne|lixo|col
 /** Pro: the waste collection card, up to four bins, each a sensor with a name and a color. */
 function BinsSettings({ bins, enabled, hass, onBins, onEnabled, onUpsell, pro, t }: { bins: HomeDeckBin[]; enabled: boolean; hass: HomeAssistant; onBins: (bins: HomeDeckBin[]) => void; onEnabled: (on: boolean) => void; onUpsell: () => void; pro: boolean; t: (key: TranslationKey) => string }) {
   const name = (id: string) => String(hass.states[id]?.attributes.friendly_name ?? id);
-  const sensors = useMemo(() => Object.keys(hass.states).filter((id) => id.startsWith("sensor.")).sort((a, b) => Number(BIN_WORDS.test(b + name(b))) - Number(BIN_WORDS.test(a + name(a))) || name(a).localeCompare(name(b))), [enabled]);
+  const sensors = useMemo(() => Object.keys(hass.states).filter((id) => id.startsWith("sensor.") || id.startsWith("calendar.")).sort((a, b) => Number(BIN_WORDS.test(b + name(b))) - Number(BIN_WORDS.test(a + name(a))) || name(a).localeCompare(name(b))), [enabled]);
   const change = (index: number, patch: Partial<HomeDeckBin>) => onBins(bins.map((bin, at) => at === index ? { ...bin, ...patch } : bin));
   const colors: Array<[HomeDeckBinColor, TranslationKey]> = [["black", "binBlack"], ["brown", "binBrown"], ["green", "binGreen"], ["blue", "binBlue"], ["yellow", "binYellow"], ["grey", "binGrey"], ["red", "binRed"]];
   return <div className="st-group">
     <Row description={t("binsCardDescription")} label={t("binsCard")}>{pro ? <Switch checked={enabled} label={t("binsCard")} onChange={onEnabled} /> : <button className="hd-pill" onClick={onUpsell} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
     {pro && enabled && <div className="st-sub">
       {bins.map((bin, index) => <div className="st-bin" key={index}>
-        <HDSelect ariaLabel={t("binSensor")} onChange={(entity) => change(index, { entity })} options={[{ value: "", label: t("binSensor") }, ...[...new Set([...(bin.entity ? [bin.entity] : []), ...sensors])].map((id) => ({ value: id, label: name(id) }))]} value={bin.entity} />
+        <HDSelect ariaLabel={t("binSensor")} onChange={(entity) => change(index, { entity, attribute: undefined })} options={[{ value: "", label: t("binSensor") }, ...[...new Set([...(bin.entity ? [bin.entity] : []), ...sensors])].map((id) => ({ value: id, label: name(id) }))]} value={bin.entity} />
         <input aria-label={t("binName")} className="st-input st-input--framed" maxLength={30} onChange={(event) => change(index, { name: event.target.value })} placeholder={t("binName")} value={bin.name} />
         <HDSelect ariaLabel={t("binColor")} onChange={(color) => change(index, { color: color as HomeDeckBinColor })} options={colors.map(([value, label]) => ({ value, label: t(label) }))} value={bin.color} />
         <button aria-label={t("removeItem")} className="st-icon-button st-icon-button--danger" onClick={() => onBins(bins.filter((_, at) => at !== index))} type="button"><HDIcon name="trash" size={16} /></button>
+        {bin.entity.startsWith("calendar.") && <div className="st-bin__value"><span>{t("binMatch")}</span><input aria-label={t("binMatch")} className="st-input st-input--framed" maxLength={40} onChange={(event) => change(index, { match: event.target.value || undefined })} placeholder={t("binMatchHint")} value={bin.match ?? ""} /></div>}
+        {bin.entity && !bin.entity.startsWith("calendar.") && binAttributes(hass, bin.entity).length > 0 && <div className="st-bin__value"><span>{t("binValue")}</span><HDSelect ariaLabel={t("binValue")} onChange={(attribute) => change(index, { attribute: attribute || undefined })} options={[{ value: "", label: t("binValueState").replace("{value}", String(hass.states[bin.entity]?.state ?? "")) }, ...binAttributes(hass, bin.entity).map(([key, value]) => ({ value: key, label: `${key}: ${value}` }))]} value={bin.attribute ?? ""} /></div>}
       </div>)}
       {bins.length < 4 && <div className="st-actions"><button className="hd-pill" onClick={() => onBins([...bins, { entity: "", name: "", color: "black" }])} type="button"><HDIcon name="plus" size={16} />{t("binsAdd")}</button></div>}
     </div>}
@@ -551,7 +652,9 @@ function SeasonsPanel({ draft, hass, onUpsell, pro, t, update }: { draft: HomeDe
 }
 
 /** Choices for this device only: lock editing, and the speaker Spotify starts on from here. */
-function DevicePrefsRows({ general, generalBackground, generalKids, hass, pro, t }: { general: HomeDeckConfig["view_mode"]; generalBackground: string; generalKids: string; hass: HomeAssistant; pro: boolean; t: (key: TranslationKey) => string }) {
+function DevicePrefsRows({ general, generalBackground, generalKids, hass, onUpsell, pro, sidebarRow, t }: { general: HomeDeckConfig["view_mode"]; generalBackground: string; generalKids: string; hass: HomeAssistant; onUpsell: () => void; pro: boolean; sidebarRow: ReactNode; t: (key: TranslationKey) => string }) {
+  const motion = useDevicePref(motionPrefs);
+  const setMotion = (patch: Partial<typeof motion>) => setMotionPrefs({ ...motion, ...patch });
   const locked = useDevicePref(editingLocked);
   const childLock = useDevicePref(childLockEnabled);
   const view = useDevicePref(deviceViewMode);
@@ -566,16 +669,30 @@ function DevicePrefsRows({ general, generalBackground, generalKids, hass, pro, t
   const sceneThumb = (scene: string) => <span className={`st-kids-scene st-kids-scene--${scene}`} />;
   const speaker = useDevicePref(spotifySpeaker);
   const awake = useDevicePref(keepAwakeMode);
+  const textSize = useDevicePref(fontSize);
+  const interfaceSize = useDevicePref(uiSize);
+  const sizes = [{ value: "small", label: t("sizeSmall") }, { value: "normal", label: t("sizeNormal") }, { value: "large", label: t("sizeLarge") }];
   const spotify = Object.values(hass.states).find((state) => state.entity_id.startsWith("media_player.") && (state.entity_id.includes("spotify") || state.attributes.source === "Spotify" || String(state.attributes.friendly_name ?? "").toLowerCase().includes("spotify")));
   const sources = Array.isArray(spotify?.attributes.source_list) ? spotify.attributes.source_list.map(String) : [];
   return <>
+    <h3 className="st-category">{t("deviceCatLook")}</h3>
     <Row description={t("deviceLayoutDescription")} label={t("deviceLayout")}><HDSelect ariaLabel={t("deviceLayout")} onChange={setDeviceViewMode} options={[{ value: "", label: t("useGeneral"), thumb: layoutThumb(general) }, ...VIEW_MODES.map((mode) => ({ value: mode.id, label: `${t(mode.name)}${pro_(FREE_VIEW_MODES.includes(mode.id))}`, thumb: layoutThumb(mode.id) }))]} value={view} /></Row>
     {kids
-      ? <Row description={t("deviceBackgroundDescription")} label={t("deviceKidsScene")}><HDSelect ariaLabel={t("deviceKidsScene")} onChange={setDeviceKidsScene} options={[{ value: "", label: t("useGeneral"), thumb: sceneThumb(generalKids) }, ...KIDS_SCENES.map(([scene, label]) => ({ value: scene, label: t(label), thumb: sceneThumb(scene) }))]} value={kidsScene} /></Row>
-      : <Row description={t("deviceBackgroundDescription")} label={t("deviceBackground")}><HDSelect ariaLabel={t("deviceBackground")} onChange={setDeviceBackground} options={[{ value: "", label: t("useGeneral"), thumb: backgroundThumb(generalBackground) }, ...BACKGROUNDS.map(([preset, label]) => ({ value: preset, label: `${t(label)}${pro_(FREE_BACKGROUNDS.includes(preset))}`, thumb: backgroundThumb(preset) }))]} value={background} /></Row>}
+      ? <Row label={t("deviceKidsScene")}><HDSelect ariaLabel={t("deviceKidsScene")} onChange={setDeviceKidsScene} options={[{ value: "", label: t("useGeneral"), thumb: sceneThumb(generalKids) }, ...KIDS_SCENES.map(([scene, label]) => ({ value: scene, label: t(label), thumb: sceneThumb(scene) }))]} value={kidsScene} /></Row>
+      : <Row label={t("deviceBackground")}><HDSelect ariaLabel={t("deviceBackground")} onChange={setDeviceBackground} options={[{ value: "", label: t("useGeneral"), thumb: backgroundThumb(generalBackground) }, ...BACKGROUNDS.map(([preset, label]) => ({ value: preset, label: `${t(label)}${pro_(FREE_BACKGROUNDS.includes(preset))}`, thumb: backgroundThumb(preset) }))]} value={background} /></Row>}
+    <Row description={t("deviceTextSizeDescription")} label={t("deviceTextSize")}><HDSegmented ariaLabel={t("deviceTextSize")} onChange={(size) => setFontSize(size as SizeChoice)} options={sizes} value={textSize} /></Row>
+    <Row description={t("deviceUiSizeDescription")} label={t("deviceUiSize")}><HDSegmented ariaLabel={t("deviceUiSize")} onChange={(size) => setUiSize(size as SizeChoice)} options={sizes} value={interfaceSize} /></Row>
+    <h3 className="st-category">{t("deviceCatMotion")}</h3>
+    <Row description={t("motionUiDescription")} label={t("motionUi")}><Switch checked={motion.ui} label={t("motionUi")} onChange={(ui) => setMotion({ ui })} /></Row>
+    <Row description={t("animationsDescription")} label={t("motionCards")}>{pro ? <Switch checked={motion.cards} label={t("motionCards")} onChange={(cards) => setMotion({ cards })} /> : <button className="hd-pill" onClick={onUpsell} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
+    <Row label={t("animateBackground")}><Switch checked={motion.background} label={t("animateBackground")} onChange={(background) => setMotion({ background })} /></Row>
+    <h3 className="st-category">{t("deviceCatWall")}</h3>
+    {sidebarRow}
     <Row description={`${t("keepAwakeDescription")}${isSilk() ? ` ${t("keepAwakeEcho")}` : ""}`} label={t("keepAwake")}><HDSelect ariaLabel={t("keepAwake")} onChange={(mode) => setKeepAwakeMode(mode as "auto" | "on" | "off")} options={[{ value: "auto", label: t("keepAwakeAuto") }, { value: "on", label: t("keepAwakeOn") }, { value: "off", label: t("keepAwakeOff") }]} value={awake} /></Row>
     <Row description={t("lockEditingDescription")} label={t("lockEditing")}><Switch checked={locked} label={t("lockEditing")} onChange={setEditingLocked} /></Row>
     <Row description={t("childLockDescription")} label={t("childLock")}><Switch checked={childLock} label={t("childLock")} onChange={setChildLockEnabled} /></Row>
+    <KeyBarRows hass={hass} t={t} />
+    {spotify && <h3 className="st-category">{t("deviceCatMusic")}</h3>}
     {spotify && <Row description={t("spotifySpeakerDescription")} label={t("spotifySpeaker")}><HDSelect ariaLabel={t("spotifySpeaker")} onChange={setSpotifySpeaker} options={[{ value: "", label: t("spotifySpeakerAny") }, ...[...new Set([...(speaker ? [speaker] : []), ...sources])].map((source) => ({ value: source, label: source }))]} value={speaker} /></Row>}
   </>;
 }
@@ -657,18 +774,42 @@ function RemoveLicenseButton({ onRemove, t }: { onRemove: () => void; t: (key: T
 }
 
 /** Which people show in the header: all of them until some are turned off, so new people show up on their own. */
-/** Pro: up to six temperature sensors under the screensaver clock, one select each, the next one shown once the last is chosen. */
+/** Pro: up to eight temperature sensors under the screensaver clock, one select each, the next one shown once the last is chosen. */
 function SaverTemperatures({ chosen, hass, onChange, t }: { chosen: string[]; hass: HomeAssistant; onChange: (ids: string[]) => void; t: (key: TranslationKey) => string }) {
   const name = (id: string) => String(hass.states[id]?.attributes.friendly_name ?? id);
   const sensors = useMemo(() => Object.keys(hass.states).filter((id) => id.startsWith("sensor.") && hass.states[id]?.attributes.device_class === "temperature").sort((a, b) => name(a).localeCompare(name(b))), [Object.keys(hass.states).length]);
   if (sensors.length === 0 && chosen.length === 0) return null;
-  const slots = chosen.length < 6 ? [...chosen, ""] : chosen;
+  const slots = chosen.length < 8 ? [...chosen, ""] : chosen;
   const set = (index: number, id: string) => onChange(slots.map((item, at) => (at === index ? id : item)).filter(Boolean).filter((item, at, list) => list.indexOf(item) === at));
   return <div className="st-group">
     <Row description={t("saverTempsDescription")} label={t("saverTemps")}><span /></Row>
     <div className="st-sub">
       {slots.map((value, index) => <div className="st-sub__row" key={index}><span>{t("saverTempsSensor").replace("{n}", String(index + 1))}</span><HDSelect ariaLabel={t("saverTempsSensor").replace("{n}", String(index + 1))} onChange={(id) => set(index, id)} options={[{ value: "", label: t("none") }, ...[...new Set([...(value ? [value] : []), ...sensors.filter((id) => id === value || !chosen.includes(id))])].map((id) => ({ value: id, label: name(id) }))]} value={value} /></div>)}
     </div>
+  </div>;
+}
+
+const KEYBAR_DOMAINS = ["script", "scene", "light", "switch", "input_boolean", "fan", "cover", "media_player", "button", "input_button", "automation"];
+
+/** This device's shortcut bar: on or off, the dock hidden or not, and 9 parts each with a name and what it runs. */
+function KeyBarRows({ hass, t }: { hass: HomeAssistant; t: (key: TranslationKey) => string }) {
+  const prefs = useDevicePref(keyBar);
+  const name = (id: string) => String(hass.states[id]?.attributes.friendly_name ?? id);
+  const entities = useMemo(() => Object.keys(hass.states).filter((id) => KEYBAR_DOMAINS.includes(id.split(".")[0])).sort((a, b) => name(a).localeCompare(name(b))), [Object.keys(hass.states).length]);
+  const setSlot = (index: number, change: Partial<{ label: string; entity: string }>) => setKeyBar({ ...prefs, slots: prefs.slots.map((slot, at) => (at === index ? { ...slot, ...change } : slot)) });
+  return <div className="st-group">
+    <Row description={t("keyBarDescription")} label={t("keyBar")}><Switch checked={prefs.on} label={t("keyBar")} onChange={(on) => setKeyBar({ ...prefs, on })} /></Row>
+    {prefs.on && <div className="st-sub">
+      <label className="st-sub__row"><span>{t("keyBarHideDock")}</span><Switch checked={prefs.hideDock} label={t("keyBarHideDock")} onChange={(hideDock) => setKeyBar({ ...prefs, hideDock })} /></label>
+      {Array.from({ length: KEYBAR_SLOTS }, (_, index) => {
+        const slot = prefs.slots[index];
+        return <div className="st-keybar" key={index}>
+          <span className="st-keybar__n">{index + 1}</span>
+          <input aria-label={`${t("keyBarName")} ${index + 1}`} className="st-input st-input--framed" maxLength={24} onChange={(event) => setSlot(index, { label: event.target.value })} placeholder={t("keyBarName")} value={slot.label} />
+          <HDSelect ariaLabel={`${t("keyBarAction")} ${index + 1}`} onChange={(entity) => setSlot(index, { entity, ...(slot.label || !entity ? {} : { label: name(entity).toLocaleUpperCase() }) })} options={[{ value: "", label: t("none") }, ...[...new Set([...(slot.entity ? [slot.entity] : []), ...entities])].map((id) => ({ value: id, label: name(id) }))]} value={slot.entity} />
+        </div>;
+      })}
+    </div>}
   </div>;
 }
 

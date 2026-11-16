@@ -1,3 +1,4 @@
+import { hourOptions } from "../clock";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { birthdayName, currentOccasion, fireworksTime, type Occasion } from "../seasons";
 import { createPortal } from "react-dom";
@@ -234,7 +235,7 @@ export function TodayCard({ config, hass, language, t }: AgendaProps) {
   }, [hasCalendar, today, calendars.map((calendar) => calendar.id).join(",")]);
 
   const colors = new Map(calendars.map((calendar) => [calendar.id, calendar.color]));
-  const time = new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" });
+  const time = new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" });
   // Events that haven't ended yet, all-day ones first.
   const left = events.filter((event) => colors.has(event.calendar) && onDay(event, now) && (event.allDay || event.end > now || event.start >= now));
   const rows = [
@@ -271,7 +272,7 @@ export function TodayCard({ config, hass, language, t }: AgendaProps) {
 function dueItems(items: TodoItem[], noDate: boolean, language: string | undefined, t: (key: TranslationKey) => string): DueItem[] {
   const now = new Date();
   const today = dayKey(now);
-  const time = new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" });
+  const time = new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" });
   const date = new Intl.DateTimeFormat(language, { day: "numeric", month: "short" });
   return items.flatMap((item): DueItem[] => {
     if (item.status !== "needs_action") return [];
@@ -358,7 +359,7 @@ function CalendarSheet({ calendars, hass, language, onClose, t }: { calendars: C
   const today = dayKey(now);
   const weekdays = Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(language, { weekday: "short" }).format(new Date(2026, 0, 4 + index)));
   const monthTitle = new Intl.DateTimeFormat(language, { month: "long" }).format(month);
-  const time = new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" });
+  const time = new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" });
   const goMonth = (delta: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + delta, 1));
   const pick = (day: Date) => { setSelected(day); if (day.getMonth() !== month.getMonth() || day.getFullYear() !== month.getFullYear()) setMonth(new Date(day.getFullYear(), day.getMonth(), 1)); };
   const dayEvents = shown.filter((event) => onDay(event, selected));
@@ -433,7 +434,7 @@ export function SaverAgenda({ config, hass, language, showEvents, showTodo, t }:
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [hasCalendar, today, calendars.map((calendar) => calendar.id).join(",")]);
   const colors = new Map(calendars.map((calendar) => [calendar.id, calendar.color]));
-  const time = new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" });
+  const time = new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" });
   const left = events.filter((event) => colors.has(event.calendar) && onDay(event, now) && (event.allDay || event.end > now || event.start >= now));
   const max = 4;
   const reminders = showTodo ? due : [];

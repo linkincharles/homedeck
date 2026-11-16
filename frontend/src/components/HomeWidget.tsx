@@ -1,13 +1,18 @@
+import { RecentMediaCard } from "./RecentMedia";
 import { BinsCard } from "./BinsCard";
 import type { TranslationKey } from "../i18n";
 import { hvacLabel } from "../i18n";
 import type { WidgetKey } from "../layout";
 import { isSecurityAlert, isSecurityEntity } from "../security";
+import { AlarmButtons } from "./AlarmButtons";
 import type { DiscoveredEntity, DiscoveryResponse } from "../types/discovery";
 import type { HomeAssistant } from "../types/home-assistant";
 import { useWideTile } from "./EditableGrid";
 import { displayState } from "./EntityCard";
-import { HDIcon } from "./HDIcon";
+import { EntityIcon, HDIcon } from "./HDIcon";
+import { useRef, useState } from "react";
+import { useEscape } from "../useEscape";
+import { createPortal } from "react-dom";
 import { WideControls } from "./WideControls";
 import { MediaIdle, SpotifyCard } from "./SpotifyCard";
 import { usePlan } from "../plan";
@@ -16,6 +21,7 @@ import { mediaArt } from "../devices";
 import type { HomeDeckConfig } from "../types/config";
 import { TodayCard } from "./Agenda";
 import { EnergyWidget, SunWidget, WeatherWidget } from "./ExtraWidgets";
+import { PlanWidget } from "./FloorPlan";
 
 function uniqueEntities(data: DiscoveryResponse): DiscoveredEntity[] {
   const seen = new Set<string>();
@@ -42,6 +48,8 @@ export const WIDGET_LABELS: Record<WidgetKey, TranslationKey> = {
   "widget:sun": "sunCard",
   "widget:energy": "energy",
   "widget:bins": "binsCard",
+  "widget:plan": "floorplan",
+  "widget:recent": "recentMedia",
 };
 
 interface HomeWidgetProps {
@@ -59,6 +67,8 @@ export function HomeWidget(props: HomeWidgetProps) {
   if (props.kind === "widget:weather") return <WeatherWidget config={props.config} hass={props.hass} language={props.language} t={props.t} />;
   if (props.kind === "widget:sun") return <SunWidget hass={props.hass} language={props.language} onOpen={props.onOpen} t={props.t} />;
   if (props.kind === "widget:bins") return <BinsCard config={props.config} hass={props.hass} language={props.language} onOpen={props.onOpen} t={props.t} />;
+  if (props.kind === "widget:recent") return <RecentMediaCard config={props.config} hass={props.hass} onOpen={props.onOpen} t={props.t} />;
+  if (props.kind === "widget:plan") return <PlanWidget config={props.config} data={props.data} hass={props.hass} t={props.t} />;
   if (props.kind === "widget:energy") return <EnergyWidget config={props.config} hass={props.hass} language={props.language} onOpen={props.onOpen} t={props.t} />;
   return <DeviceWidget {...props} />;
 }
@@ -71,8 +81,10 @@ function DeviceWidget({ data, hass, kind, language, onOpen, t }: HomeWidgetProps
 
   if (kind === "widget:security") {
     const monitored = entities.filter((entity) => isSecurityEntity(entity, hass.states[entity.entity_id]));
-    const alerts = monitored.filter((entity) => isSecurityAlert(hass.states[entity.entity_id]));
+    const alerts = monitored.filter((entity) => isSecurityAlert(hass.states[entity.entity_id], entity));
     const target = alerts[0] ?? monitored[0];
+    // An alarm panel with its buttons on: they show on this card too, at double size and up.
+    const alarm = entities.find((entity) => entity.domain === "alarm_control_panel" && entity.alarm_buttons);
     if (wide) {
       // Double size lists what is being watched, alerts first.
       const listed = [...alerts, ...monitored.filter((entity) => !alerts.includes(entity))].slice(0, 4);
@@ -80,15 +92,11 @@ function DeviceWidget({ data, hass, kind, language, onOpen, t }: HomeWidgetProps
         <span className="widget-card__icon"><HDIcon name="shield" size={22} /></span>
         <span className="widget-card__label">{t("security")}</span>
         <strong>{alerts.length > 0 ? t("attentionRequired") : t("allSecure")}</strong>
-        <ul className="widget-list">{listed.map((entity) => <li key={entity.entity_id}><button className={isSecurityAlert(hass.states[entity.entity_id]) ? "widget-list--alert" : undefined} onClick={() => onOpen(entity)} type="button"><span>{entity.name}</span><small>{displayState(hass.states[entity.entity_id], entity, t, language)}</small></button></li>)}</ul>
+        {alarm && <AlarmButtons entity={alarm} hass={hass} onOpen={onOpen} t={t} />}
+        <ul className="widget-list">{listed.map((entity) => <li key={entity.entity_id}><button className={isSecurityAlert(hass.states[entity.entity_id], entity) ? "widget-list--alert" : undefined} onClick={() => onOpen(entity)} type="button"><span>{entity.name}</span><small>{displayState(hass.states[entity.entity_id], entity, t, language)}</small></button></li>)}</ul>
       </div>;
     }
-    return <button className={`widget-card widget-card--interactive ${alerts.length > 0 ? "widget-card--alert" : ""}`} onClick={() => target && onOpen(target)} type="button">
-      <span className="widget-card__icon"><HDIcon name="shield" size={22} /></span>
-      <span className="widget-card__label">{t("security")}</span>
-      <strong>{alerts.length > 0 ? t("attentionRequired") : t("allSecure")}</strong>
-      <p>{alerts.length === 0 ? `${monitored.length} ${t("monitored")}` : alerts.length === 1 ? alerts[0].name : `${alerts.length} ${t("alerts")}`}</p>
-    </button>;
+    return <SecuritySmall alerts={alerts} hass={hass} language={language} monitored={monitored} onOpen={onOpen} t={t} />;
   }
 
   if (kind === "widget:climate") {
@@ -142,4 +150,45 @@ function DeviceWidget({ data, hass, kind, language, onOpen, t }: HomeWidgetProps
     <p>{String(state?.attributes.media_artist ?? (state ? (playing ? t("on") : t("nothingPlaying")) : ""))}</p>
     {media && <button aria-label={t("playPause")} onClick={(event) => { event.stopPropagation(); void hass.callService("media_player", "media_play_pause", { entity_id: media.entity_id }); }} type="button"><HDIcon name={playing ? "volume" : "media"} size={18} /></button>}
   </div>;
+}
+
+/** An alert's state as Home Assistant words it ("Unlocked", "Open"), else the card's own text. */
+function alertState(hass: HomeAssistant, entity: DiscoveredEntity, t: (key: TranslationKey) => string, language?: string): string {
+  const state = hass.states[entity.entity_id];
+  const format = (hass as unknown as { formatEntityState?: (value: NonNullable<typeof state>) => string }).formatEntityState;
+  if (state && typeof format === "function") { try { return format.call(hass, state); } catch { /* falls back below */ } }
+  return displayState(state, entity, t, language);
+}
+
+/** The normal-size Security card: one alert opens it; with several, a tap lists them all, each one
+ * opening its details (the card used to open only the first one). */
+function SecuritySmall({ alerts, hass, language, monitored, onOpen, t }: { alerts: DiscoveredEntity[]; hass: HomeAssistant; language?: string; monitored: DiscoveredEntity[]; onOpen: (entity: DiscoveredEntity) => void; t: (key: TranslationKey) => string }) {
+  const [listing, setListing] = useState(false);
+  useEscape(() => setListing(false), listing);
+  const ref = useRef<HTMLButtonElement>(null);
+  const target = alerts[0] ?? monitored[0];
+  const shell = ref.current?.closest(".app-shell");
+  return <>
+    <button className={`widget-card widget-card--interactive ${alerts.length > 0 ? "widget-card--alert" : ""}`} onClick={() => { if (alerts.length > 1) setListing(true); else if (target) onOpen(target); }} ref={ref} type="button">
+      <span className="widget-card__icon"><HDIcon name="shield" size={22} /></span>
+      <span className="widget-card__label">{t("security")}</span>
+      <strong>{alerts.length > 0 ? t("attentionRequired") : t("allSecure")}</strong>
+      <p>{alerts.length === 0 ? `${monitored.length} ${t("monitored")}` : alerts.length === 1 ? alerts[0].name : `${alerts.length} ${t("alerts")}`}</p>
+    </button>
+    {listing && shell && createPortal(<div aria-label={t("attentionRequired")} aria-modal="true" className="hd-sheet-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setListing(false); }} role="dialog">
+      <section className="hd-sheet hd-picker hd-alerts">
+        <header className="hd-sheet__header">
+          <div><span className="eyebrow">{t("security")}</span><h2>{t("attentionRequired")}</h2></div>
+          <button className="hd-sheet__close" onClick={() => setListing(false)} type="button">{t("close")}</button>
+        </header>
+        <div className="hd-picker__list"><section><div className="hd-picker__rows">
+          {alerts.map((entity) => <button className="hd-picker__row hd-alerts__row" key={entity.entity_id} onClick={() => { setListing(false); onOpen(entity); }} type="button">
+            <span className="hd-picker__icon"><EntityIcon entity={entity} size={18} /></span>
+            <span className="hd-picker__copy"><strong>{entity.name}</strong><small>{alertState(hass, entity, t, language)}</small></span>
+            <HDIcon name="chevron" size={16} />
+          </button>)}
+        </div></section></div>
+      </section>
+    </div>, shell)}
+  </>;
 }

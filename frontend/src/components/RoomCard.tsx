@@ -1,3 +1,4 @@
+import { useRoomPower } from "../history";
 import { coverOn } from "../devices";
 import { isRoomLight } from "../personalize";
 import { useMemo, useState } from "react";
@@ -24,6 +25,7 @@ interface RoomCardProps {
 
 export function RoomCard({ featured = false, hass, index, room, t, onOpen }: RoomCardProps) {
   const [busy, setBusy] = useState(false);
+  const showPower = useRoomPower();
   const wide = useWideTile();
   const activeCount = room.entities.filter((entity) => !entity.hidden && (entity.domain === "cover" ? coverOn(entity, hass.states[entity.entity_id]?.state) : ACTIVE_STATES.has(hass.states[entity.entity_id]?.state))).length;
   const lights = room.entities.filter(isRoomLight);
@@ -52,7 +54,7 @@ export function RoomCard({ featured = false, hass, index, room, t, onOpen }: Roo
       <button aria-label={`${t("openRoom")} ${roomName}`} className="room-card__open" onClick={onOpen} type="button"><span /></button>
       <div className="room-card__top">
         <span className="room-card__icon"><RoomIcon room={room} size={23} /></span>
-        {lightIds.length > 0 ? (
+        {lightIds.length > 0 && showPower ? (
           <button aria-label={`${roomName}: ${activeLights.length > 0 ? t("turnAllOff") : t("turnAllOn")}`} className="room-card__power" disabled={busy || unavailable} onClick={() => void toggleLights()} type="button">
             {busy ? <span className="mini-spinner" /> : <HDIcon name="power" size={18} />}
           </button>

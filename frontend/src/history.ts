@@ -64,6 +64,9 @@ export const useSparklines = () => useContext(SparklinesContext);
 /** Sensor cards at 1x and ½x also show how long ago they changed (Settings → Cards). */
 export const SensorSinceContext = createContext(false);
 export const useSensorSince = () => useContext(SensorSinceContext);
+/** The lights button on room cards (on unless turned off in Settings → Cards). */
+export const RoomPowerContext = createContext(true);
+export const useRoomPower = () => useContext(RoomPowerContext);
 
 export function isNumericState(state?: { state: string }): boolean {
   return Boolean(state && Number.isFinite(Number.parseFloat(state.state)) && !/^\d{4}-\d{2}-\d{2}/.test(state.state));
