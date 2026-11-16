@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { isOn, roomItems } from "../screens/layouts/shared";
 import { isEnvironmentSensor } from "./SensorStrip";
@@ -25,6 +25,7 @@ const ROWS = 32;
 const EMPTY: HomeDeckFloorplan = { rooms: {}, devices: {}, hidden: [], images: {} };
 const THREE_D_KEY = "homedeck-plan-3d";
 const NO_FLOOR = "__none__";
+interface Draft { rooms: Record<string, Rect>; devices: Record<string, Spot>; parts: Record<string, Rect[]>; labels: Record<string, Spot> }
 const SWITCHES = new Set(["light", "switch", "fan", "input_boolean"]);
 const ON_PLAN = new Set(["light", "switch", "fan", "input_boolean", "cover", "climate", "media_player", "lock", "vacuum", "camera"]);
 const OPENINGS = new Set(["door", "window", "garage_door", "opening"]);
@@ -38,6 +39,50 @@ const VIEW_2D: View = { rx: 0, rz: 0, zoom: 1, px: 0, py: 0 };
 type Rect = HomeDeckFloorplanRect;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 type Spot = { x: number; y: number };
+
+/** A device's spot is kept per room ("<room>|<entity>"), so a device shown in two rooms has two spots;
+ * spots saved before that, by entity id alone, still count until the device is moved. */
+const spotKey = (roomId: string, entityId: string) => `${roomId}|${entityId}`;
+
+/** The rectangle around a room and its extra parts. */
+function boundsOf(rects: Rect[]): Rect {
+  const x = Math.min(...rects.map((rect) => rect.x));
+  const y = Math.min(...rects.map((rect) => rect.y));
+  const right = Math.max(...rects.map((rect) => rect.x + rect.w));
+  const bottom = Math.max(...rects.map((rect) => rect.y + rect.h));
+  return { x, y, w: right - x, h: bottom - y };
+}
+
+/** A room made of several rectangles as one shape: its floor painted once (overlapping parts don't add up)
+ * and its outer walls, both kept a little inside the grid lines like the other rooms (`ex`, `ey`: that
+ * margin in grid units). Points go through `view` (the plan turned upright on a phone). */
+function shapeOf(rects: Rect[], ex: number, ey: number, view: (x: number, y: number) => [number, number]): { floor: string; walls: string } {
+  const inside = (x: number, y: number) => rects.some((rect) => x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h);
+  const box = boundsOf(rects);
+  const point = (x: number, y: number) => view(x, y).map((value) => Math.round(value * 1000) / 1000).join(" ");
+  let floor = "";
+  let walls = "";
+  for (let y = box.y; y < box.y + box.h; y += 1) {
+    for (let x = box.x; x < box.x + box.w; x += 1) {
+      if (!inside(x, y)) continue;
+      const top = !inside(x, y - 1);
+      const bottom = !inside(x, y + 1);
+      const left = !inside(x - 1, y);
+      const right = !inside(x + 1, y);
+      // Each cell of the floor, pulled in only on the sides that face outside the room.
+      const x1 = x + (left ? ex : 0);
+      const x2 = x + 1 - (right ? ex : 0);
+      const y1 = y + (top ? ey : 0);
+      const y2 = y + 1 - (bottom ? ey : 0);
+      floor += `M${point(x1, y1)}L${point(x2, y1)}L${point(x2, y2)}L${point(x1, y2)}Z`;
+      if (top) walls += `M${point(x1, y1)}L${point(x2, y1)}`;
+      if (bottom) walls += `M${point(x1, y2)}L${point(x2, y2)}`;
+      if (left) walls += `M${point(x1, y1)}L${point(x1, y2)}`;
+      if (right) walls += `M${point(x2, y1)}L${point(x2, y2)}`;
+    }
+  }
+  return { floor, walls };
+}
 
 /** The floor plan's name: the one chosen in Settings → Navigation, else the default for that place. */
 export function planTitle(config: HomeDeckConfig, t: (key: TranslationKey) => string, fallback: TranslationKey = "floorplan"): string {
@@ -147,27 +192,40 @@ export function useFloorGroups<T extends { id: string; floor_id?: string | null 
   return ids.sort((a, b) => order(a) - order(b)).map((id) => ({ id: id || "none", name: id ? floors[id]?.name ?? id : noFloor, rooms: rooms.filter((room) => (room.floor_id ?? "") === id) }));
 }
 
-interface Drag { kind: "move" | "resize" | "resizeStart" | "spot"; id: string; startX: number; startY: number; rect?: Rect; spot?: Spot; box?: DOMRect; moved: boolean }
+interface Drag { kind: "move" | "resize" | "resizeStart" | "spot" | "label" | "partMove" | "partResize"; id: string; startX: number; startY: number; rect?: Rect; spot?: Spot; box?: DOMRect; moved: boolean; room?: string; part?: number; parts?: Rect[] }
 
 /** Reads an image file and gives it back as a data URL at most 2400 px on its longer side. */
-function shrinkImage(file: File): Promise<string> {
+/** What the Home Assistant connection takes in one message, with room to spare (it refuses bigger ones). */
+const SEND_LIMIT = 3_000_000;
+
+/** An image made ready to send: at most `max` px across, as PNG or WebP when it has transparency to keep
+ * (a plan drawn on nothing) and as JPEG otherwise, then smaller and lighter until it fits one message.
+ * Rejects when the browser can't read the file (as some browsers can't read iPhone HEIC photos). */
+export function shrinkImage(file: File, options: { photo?: boolean; max?: number } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const picture = new Image();
     picture.onload = () => {
-      const scale = Math.min(1, 2400 / Math.max(picture.naturalWidth, picture.naturalHeight));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(picture.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(picture.naturalHeight * scale));
-      const context = canvas.getContext("2d");
-      if (!context) { URL.revokeObjectURL(url); reject(new Error("no canvas")); return; }
-      // PNG and WebP keep their transparency (a plan drawn on nothing shows the panel's background);
-      // photos go as JPEG, which keeps them light.
-      const transparent = file.type === "image/png" || file.type === "image/webp";
-      if (!transparent) { context.fillStyle = "#ffffff"; context.fillRect(0, 0, canvas.width, canvas.height); }
-      context.drawImage(picture, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
-      resolve(transparent ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.86));
+      const keepAlpha = !options.photo && (file.type === "image/png" || file.type === "image/webp");
+      let side = options.max ?? 2400;
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const scale = Math.min(1, side / Math.max(picture.naturalWidth, picture.naturalHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(picture.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(picture.naturalHeight * scale));
+        const context = canvas.getContext("2d");
+        if (!context) { reject(new Error("no canvas")); return; }
+        if (!keepAlpha) { context.fillStyle = "#ffffff"; context.fillRect(0, 0, canvas.width, canvas.height); }
+        context.drawImage(picture, 0, 0, canvas.width, canvas.height);
+        const quality = attempt === 0 ? 0.86 : 0.8;
+        const candidates = keepAlpha ? [canvas.toDataURL("image/png"), canvas.toDataURL("image/webp", 0.9)] : [canvas.toDataURL("image/jpeg", quality)];
+        // WebP is only used when the browser can make it (Safari before 14 hands back PNG).
+        const fitting = candidates.filter((data) => data.startsWith("data:image/") && data.length <= SEND_LIMIT).sort((x, y) => x.length - y.length)[0];
+        if (fitting) { resolve(fitting); return; }
+        side = Math.round(side * 0.75);
+      }
+      reject(new Error("too big"));
     };
     picture.onerror = () => { URL.revokeObjectURL(url); reject(new Error("unreadable")); };
     picture.src = url;
@@ -192,7 +250,8 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
       .sort((a, b) => a.level - b.level);
   }, [rooms, floorNames]);
   const [floorKey, setFloorKey] = useState<string | null>(null);
-  const floor = floors.find((item) => item.key === floorKey) ?? floors[0];
+  // The floor chosen here, else the one set to open first (Edit mode), else the lowest.
+  const floor = floors.find((item) => item.key === floorKey) ?? floors.find((item) => item.key === plan.first_floor) ?? floors[0];
 
   // The floor's background image, if any: the plan then keeps the image's own proportions.
   const image = floor ? plan.images?.[floor.key] : undefined;
@@ -262,7 +321,7 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
     const dy = event.clientY - first.y;
     // One finger: turns and tilts the 3D model; on the flat plan it moves the plan once zoomed in.
     if (now.pan) setView({ ...start, px: start.px + dx, py: start.py + dy });
-    else if (threeD) setView({ ...start, rz: start.rz + dx * 0.35, rx: clamp(start.rx - dy * 0.25, 0, 78) });
+    else if (threeD) setView({ ...start, rz: start.rz - dx * 0.35, rx: clamp(start.rx - dy * 0.25, 0, 78) });
     else if (start.zoom > 1.01) setView({ ...start, px: start.px + dx, py: start.py + dy });
   };
   const onStageUp = (event: ReactPointerEvent) => {
@@ -287,14 +346,18 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
 
   // Room rectangles: the saved ones, the rest laid out on their own (and saved as soon as one is moved).
   const auto = useMemo(() => autoLayout(floor?.rooms ?? []), [floor]);
-  const [draft, setDraft] = useState<{ rooms: Record<string, Rect>; devices: Record<string, Spot> } | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
   const rectOf = (room: Room) => draft?.rooms[room.id] ?? plan.rooms[room.id] ?? auto[room.id];
+  const partsOf = (room: Room) => draft?.parts[room.id] ?? plan.parts?.[room.id] ?? [];
+  const labelOf = (room: Room) => draft?.labels[room.id] ?? plan.labels?.[room.id] ?? { x: 0.5, y: 0.12 };
+  const showNames = Boolean(plan.show_names);
   // Devices left off the plan only (they stay in their room); in Edit mode they show faded, to bring back.
   const hidden = new Set(plan.hidden);
-  const setHidden = (entityId: string, off: boolean) => onConfig((current) => {
+  const isHidden = (roomId: string, entityId: string) => hidden.has(spotKey(roomId, entityId)) || hidden.has(entityId);
+  const setHidden = (roomId: string, entityId: string, off: boolean) => onConfig((current) => {
     const now = current.floorplan ?? EMPTY;
     const list = new Set(now.hidden);
-    if (off) list.add(entityId); else list.delete(entityId);
+    if (off) list.add(spotKey(roomId, entityId)); else { list.delete(spotKey(roomId, entityId)); list.delete(entityId); }
     return { ...current, floorplan: { ...now, hidden: [...list] } };
   });
   // "Arrange automatically" asks for a second tap (it undoes the floor's arrangement).
@@ -339,13 +402,34 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
   const hold = useRef<number | undefined>(undefined);
 
   // Saves the whole floor at once, so rooms still on the automatic layout keep where they were drawn.
-  const save = (rooms: Record<string, Rect>, devices: Record<string, Spot>) => {
-    const floorRects = Object.fromEntries((floor?.rooms ?? []).map((room) => [room.id, rooms[room.id] ?? plan.rooms[room.id] ?? auto[room.id]]));
+  const save = (next: Draft) => {
+    const floorRects = Object.fromEntries((floor?.rooms ?? []).map((room) => [room.id, next.rooms[room.id] ?? plan.rooms[room.id] ?? auto[room.id]]));
     onConfig((current) => {
       const now = current.floorplan ?? EMPTY;
-      return { ...current, floorplan: { ...now, rooms: { ...now.rooms, ...floorRects }, devices: { ...now.devices, ...devices } } };
+      const parts = { ...(now.parts ?? {}), ...next.parts };
+      for (const [id, list] of Object.entries(parts)) if (list.length === 0) delete parts[id];
+      return { ...current, floorplan: { ...now, rooms: { ...now.rooms, ...floorRects }, devices: { ...now.devices, ...next.devices }, parts, labels: { ...(now.labels ?? {}), ...next.labels } } };
     });
   };
+  const emptyDraft = (): Draft => ({ rooms: {}, devices: {}, parts: {}, labels: {} });
+  // A room that is not a rectangle gets a part beside it (right, below, left or above, where it fits).
+  const addPart = (room: Room) => {
+    const rect = rectOf(room);
+    const parts = partsOf(room);
+    if (!rect || parts.length >= 4) return;
+    const box = boundsOf([rect, ...parts]);
+    const size = (free: number) => Math.min(6, free);
+    const options: Rect[] = [
+      { x: box.x + box.w, y: rect.y, w: size(COLS - box.x - box.w), h: Math.min(6, rect.h) },
+      { x: rect.x, y: box.y + box.h, w: Math.min(6, rect.w), h: size(ROWS - box.y - box.h) },
+      { x: box.x - size(box.x), y: rect.y, w: size(box.x), h: Math.min(6, rect.h) },
+      { x: rect.x, y: box.y - size(box.y), w: Math.min(6, rect.w), h: size(box.y) },
+    ];
+    const part = options.find((item) => item.w >= 3 && item.h >= 3) ?? { x: rect.x, y: rect.y, w: Math.max(3, Math.floor(rect.w / 2)), h: Math.max(3, Math.floor(rect.h / 2)) };
+    save({ ...emptyDraft(), parts: { [room.id]: [...parts, part] } });
+  };
+  const removePart = (room: Room, index: number) => save({ ...emptyDraft(), parts: { [room.id]: partsOf(room).filter((_, at) => at !== index) } });
+  const setPlanOption = (change: Partial<HomeDeckFloorplan>) => onConfig((current) => ({ ...current, floorplan: { ...(current.floorplan ?? EMPTY), ...change } }));
   const setImage = (next: { src: string; opacity?: number } | null) => onConfig((current) => {
     const now = current.floorplan ?? EMPTY;
     const images = { ...(now.images ?? {}) };
@@ -372,7 +456,9 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
     const now = current.floorplan ?? EMPTY;
     const ids = new Set((floor?.rooms ?? []).map((room) => room.id));
     const entities = new Set((floor?.rooms ?? []).flatMap((room) => room.entities.map((entity) => entity.entity_id)));
-    return { ...current, floorplan: { ...now, rooms: Object.fromEntries(Object.entries(now.rooms).filter(([id]) => !ids.has(id))), devices: Object.fromEntries(Object.entries(now.devices).filter(([id]) => !entities.has(id))) } };
+    const keep = (key: string) => !entities.has(key) && !ids.has(key.split("|")[0]);
+    const drop = <V,>(record: Record<string, V> | undefined) => Object.fromEntries(Object.entries(record ?? {}).filter(([id]) => !ids.has(id)));
+    return { ...current, floorplan: { ...now, rooms: drop(now.rooms), parts: drop(now.parts), labels: drop(now.labels), devices: Object.fromEntries(Object.entries(now.devices).filter(([key]) => keep(key))) } };
   });
 
   const onDragMove = (event: ReactPointerEvent) => {
@@ -380,11 +466,15 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
     if (!start) return;
     if (Math.abs(event.clientX - start.startX) + Math.abs(event.clientY - start.startY) > 5) start.moved = true;
     if (!start.moved) return;
-    if (start.kind === "spot" && start.spot && start.box) {
+    if ((start.kind === "spot" || start.kind === "label") && start.spot && start.box) {
       const fx = (event.clientX - start.startX) / start.box.width;
       const fy = (event.clientY - start.startY) / start.box.height;
       const next = upright ? { x: start.spot.x + fy, y: start.spot.y - fx } : { x: start.spot.x + fx, y: start.spot.y + fy };
-      setDraft((current) => ({ rooms: current?.rooms ?? {}, devices: { ...(current?.devices ?? {}), [start.id]: { x: clamp(next.x, 0.06, 0.94), y: clamp(next.y, 0.08, 0.94) } } }));
+      const spot = { x: clamp(next.x, 0.04, 0.96), y: clamp(next.y, 0.04, 0.96) };
+      setDraft((current) => {
+        const base = current ?? emptyDraft();
+        return start.kind === "label" ? { ...base, labels: { ...base.labels, [start.id]: spot } } : { ...base, devices: { ...base.devices, [start.id]: spot } };
+      });
       return;
     }
     if (!start.rect) return;
@@ -396,9 +486,21 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
     const dx = Math.round((event.clientX - start.startX) / unitX);
     const dy = Math.round((event.clientY - start.startY) / unitY);
     const seen = toScreen(start.rect);
+    if (start.kind === "move") {
+      // The room moves with its parts, kept whole inside the plan.
+      const box = toScreen(boundsOf([start.rect, ...(start.parts ?? [])]));
+      const mx = clamp(dx, -box.x, across - box.x - box.w);
+      const my = clamp(dy, -box.y, down - box.y - box.h);
+      const shift = (rect: Rect) => fromScreen({ ...toScreen(rect), x: toScreen(rect).x + mx, y: toScreen(rect).y + my });
+      setDraft((current) => {
+        const base = current ?? emptyDraft();
+        return { ...base, rooms: { ...base.rooms, [start.id]: shift(start.rect!) }, parts: start.parts?.length ? { ...base.parts, [start.id]: start.parts.map(shift) } : base.parts };
+      });
+      return;
+    }
     let moved: Rect;
-    if (start.kind === "move") moved = { ...seen, x: clamp(seen.x + dx, 0, across - seen.w), y: clamp(seen.y + dy, 0, down - seen.h) };
-    else if (start.kind === "resize") moved = { ...seen, w: clamp(seen.w + dx, 3, across - seen.x), h: clamp(seen.h + dy, 3, down - seen.y) };
+    if (start.kind === "partMove") moved = { ...seen, x: clamp(seen.x + dx, 0, across - seen.w), y: clamp(seen.y + dy, 0, down - seen.h) };
+    else if (start.kind === "resize" || start.kind === "partResize") moved = { ...seen, w: clamp(seen.w + dx, 3, across - seen.x), h: clamp(seen.h + dy, 3, down - seen.y) };
     else {
       // The top left handle moves that corner and keeps the opposite one where it is.
       const x = clamp(seen.x + dx, 0, seen.x + seen.w - 3);
@@ -406,12 +508,16 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
       moved = { x, y, w: seen.w + seen.x - x, h: seen.h + seen.y - y };
     }
     const next = fromScreen(moved);
-    setDraft((current) => ({ rooms: { ...(current?.rooms ?? {}), [start.id]: next }, devices: current?.devices ?? {} }));
+    setDraft((current) => {
+      const base = current ?? emptyDraft();
+      if ((start.kind === "partMove" || start.kind === "partResize") && start.parts && start.part != null) return { ...base, parts: { ...base.parts, [start.id]: start.parts.map((part, index) => (index === start.part ? next : part)) } };
+      return { ...base, rooms: { ...base.rooms, [start.id]: next } };
+    });
   };
   const onDragEnd = () => {
     const start = drag.current;
     drag.current = null;
-    if (start?.moved && draft) save(draft.rooms, draft.devices);
+    if (start?.moved && draft) save(draft);
     setDraft(null);
   };
   const beginDrag = (event: ReactPointerEvent, next: Omit<Drag, "startX" | "startY" | "moved">) => {
@@ -420,13 +526,14 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
     drag.current = { ...next, startX: event.clientX, startY: event.clientY, moved: false };
   };
 
-  // Outside Edit mode: a tap switches what switches and opens the rest; holding always opens the details.
+  // Outside Edit mode: a tap switches lights and switches and opens the rest; holding always opens the details.
   const act = (entity: DiscoveredEntity) => {
     const domain = entity.domain;
     if (!entity.confirm && (domain === "scene" || domain === "script")) { void hass.callService(domain, "turn_on", { entity_id: entity.entity_id }).catch(() => undefined); return; }
     if (!entity.confirm && (domain === "button" || domain === "input_button")) { void hass.callService(domain, "press", { entity_id: entity.entity_id }).catch(() => undefined); return; }
-    if (entity.confirm || domain === "lock" || !(SWITCHES.has(domain) || domain === "cover")) { openModal(entity); return; }
-    void hass.callService(domain === "cover" ? "cover" : "homeassistant", "toggle", { entity_id: entity.entity_id }).catch(() => undefined);
+    // Covers open their details (the buttons are there): a small spot is easy to hit by accident.
+    if (entity.confirm || domain === "lock" || !SWITCHES.has(domain)) { openModal(entity); return; }
+    void hass.callService("homeassistant", "toggle", { entity_id: entity.entity_id }).catch(() => undefined);
   };
   // Under the child lock a locked device's details stay closed too.
   const openModal = (entity: DiscoveredEntity) => { if (entity.child_lock && childLocked()) { childLockNote("blocked"); return; } setModal(entity); };
@@ -452,6 +559,8 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
         <button aria-pressed={threeD} className={`hd-pill fp-3d-toggle${threeD ? " fp-3d-toggle--on" : ""}`} onClick={toggle3D} type="button">3D</button>
       </div>}
       {editing && <div className="fp-tools">
+        <button aria-pressed={showNames} className={`hd-pill${showNames ? " hd-pill--on" : ""}`} onClick={() => setPlanOption({ show_names: !showNames })} type="button"><HDIcon name="tag" size={14} />{t("floorplanNames")}</button>
+        {floors.length > 1 && floor && <button aria-pressed={plan.first_floor === floor.key} className={`hd-pill${plan.first_floor === floor.key ? " hd-pill--on" : ""}`} onClick={() => setPlanOption({ first_floor: plan.first_floor === floor.key ? undefined : floor.key })} type="button"><HDIcon name="star" size={14} />{t("floorplanFirstFloor")}</button>}
         <button aria-expanded={imagePanel} className="hd-pill" onClick={() => setImagePanel((value) => !value)} type="button"><HDIcon name="plan" size={14} />{t("floorplanImage")}</button>
         <button className={`hd-pill${confirmReset ? " fp-confirm" : ""}`} onClick={() => { if (confirmReset) { setConfirmReset(false); resetFloor(); } else setConfirmReset(true); }} type="button"><HDIcon name="refresh" size={14} />{confirmReset ? t("floorplanResetConfirm") : t("floorplanReset")}</button>
       </div>}
@@ -462,7 +571,7 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
         <input accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void sendImage(file); }} ref={fileInput} type="file" />
         <button className="hd-pill" disabled={uploading} onClick={() => fileInput.current?.click()} type="button"><HDIcon name="plus" size={14} />{uploading ? t("floorplanImageSending") : image ? t("floorplanImageReplace") : t("floorplanImageSend")}</button>
         {image && <button className="hd-pill" onClick={() => setImage(null)} type="button"><HDIcon name="trash" size={14} />{t("floorplanImageRemove")}</button>}
-        {image && <label className="fp-image-panel__opacity"><span>{t("floorplanImageOpacity")}</span><input max={1} min={0.2} onChange={(event) => setOpacity(Number(event.target.value))} onPointerUp={() => { if (opacity != null) { setImage({ ...image, opacity }); setOpacity(null); } }} onKeyUp={() => { if (opacity != null) { setImage({ ...image, opacity }); setOpacity(null); } }} step={0.05} type="range" value={opacity ?? image.opacity ?? 0.9} /></label>}
+        {image && <label className="fp-image-panel__opacity"><span>{t("floorplanImageOpacity")}</span><input max={1} min={0} onChange={(event) => setOpacity(Number(event.target.value))} onPointerUp={() => { if (opacity != null) { setImage({ ...image, opacity }); setOpacity(null); } }} onKeyUp={() => { if (opacity != null) { setImage({ ...image, opacity }); setOpacity(null); } }} step={0.05} type="range" value={opacity ?? image.opacity ?? 0.9} /></label>}
       </div>
       {imageError && <p className="fp-image-panel__error">{imageError}</p>}
     </div>}
@@ -478,50 +587,76 @@ export function FloorPlan(props: ScreenProps & { embedded?: boolean; onOpenRoom:
         {floor.rooms.map((room) => {
           const rect = rectOf(room);
           if (!rect) return null;
-          const devices = roomShown(config, room, props.allRooms).filter((entity) => editing || !hidden.has(entity.entity_id)).slice(0, MAX_SPOTS);
+          const parts = partsOf(room);
+          const box = parts.length > 0 ? boundsOf([rect, ...parts]) : rect;
+          const devices = roomShown(config, room, props.allRooms).filter((entity) => editing || !isHidden(room.id, entity.entity_id)).slice(0, MAX_SPOTS);
           const lights = devices.filter((entity) => entity.domain === "light");
           const lit = lights.filter((entity) => hass.states[entity.entity_id]?.state === "on");
           const glow = lights.length === 0 ? 0 : lit.length / lights.length;
           const temperature = room.entities.find((entity) => entity.domain === "sensor" && entity.device_class === "temperature");
           const temperatureState = temperature ? hass.states[temperature.entity_id] : undefined;
+          const temperatureText = temperatureState && Number.isFinite(Number(temperatureState.state)) ? `${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(Number(temperatureState.state))}°` : null;
           const motion = room.entities.some((entity) => entity.domain === "binary_sensor" && MOTION.has(entity.device_class ?? "") && hass.states[entity.entity_id]?.state === "on");
           const open = room.entities.some((entity) => entity.domain === "binary_sensor" && OPENINGS.has(entity.device_class ?? "") && hass.states[entity.entity_id]?.state === "on");
-          const auto = autoSpots(devices.length, rect, upright);
-          return <section className={`fp-room ${glow > 0 ? "fp-room--lit" : ""} ${motion ? "fp-room--motion" : ""} ${open ? "fp-room--open" : ""}`} key={room.id}
-            onPointerDown={editing ? (event) => beginDrag(event, { kind: "move", id: room.id, rect }) : undefined}
-            style={{ ...place(rect), "--fp-glow": glow } as CSSProperties}>
-            {editing && <header className="fp-room__head">
-              <span>{room.name}</span>
-              {temperatureState && Number.isFinite(Number(temperatureState.state)) && <span className="fp-room__temp">{new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(Number(temperatureState.state))}°</span>}
-            </header>}
-            {devices.map((entity, index) => {
-              const spot = draft?.devices[entity.entity_id] ?? plan.devices[entity.entity_id] ?? auto[index];
-              const state = hass.states[entity.entity_id];
-              const on = isOn(hass, entity);
-              const alert = entity.domain === "binary_sensor" && OPENINGS.has(entity.device_class ?? "") && state?.state === "on";
-              const motionOn = entity.domain === "binary_sensor" && MOTION.has(entity.device_class ?? "") && state?.state === "on";
-              const reading = entity.domain === "sensor";
-              const off = hidden.has(entity.entity_id);
-              return <button aria-label={`${entity.name}: ${state?.state ?? ""}`}
-                className={`fp-spot ${on ? "fp-spot--on" : ""} ${alert ? "fp-spot--alert" : ""} ${motionOn ? "fp-spot--motion" : ""} ${reading ? "fp-spot--reading" : ""} ${off ? "fp-spot--hidden" : ""} ${state?.state === "unavailable" ? "fp-spot--na" : ""}`}
-                key={entity.entity_id}
-                onContextMenu={(event) => { event.preventDefault(); if (!editing) openModal(entity); }}
-                onPointerDown={editing
-                  ? (event) => beginDrag(event, { kind: "spot", id: entity.entity_id, spot, box: (event.currentTarget.parentElement as HTMLElement).getBoundingClientRect() })
-                  : (event) => { event.stopPropagation(); pressStart(entity); }}
-                onPointerLeave={editing ? undefined : () => { window.clearTimeout(hold.current); hold.current = undefined; }}
-                onPointerUp={editing ? undefined : () => pressEnd(entity)}
-                style={spotStyle(spot)}
-                title={entity.name}
-                type="button">
-                {reading ? <><EntityIcon entity={entity} size={14} /><b>{shortReading(state, language)}</b></> : <EntityIcon entity={entity} size={18} />}
-                {editing && <span className="fp-spot__label">{entity.name}</span>}
-                {editing && <i aria-label={off ? t("floorplanShowOnPlan") : t("floorplanHideOnPlan")} className="fp-spot__hide" onClick={(event) => { event.stopPropagation(); setHidden(entity.entity_id, !off); }} onPointerDown={(event) => event.stopPropagation()} role="button">{off ? "+" : "−"}</i>}
-              </button>;
-            })}
-            {editing && <span aria-hidden="true" className="fp-room__resize fp-room__resize--start" onPointerDown={(event) => beginDrag(event, { kind: "resizeStart", id: room.id, rect })} />}
-            {editing && <span aria-hidden="true" className="fp-room__resize" onPointerDown={(event) => beginDrag(event, { kind: "resize", id: room.id, rect })} />}
-          </section>;
+          const auto = autoSpots(devices.length, box, upright);
+          const roomClass = `fp-room ${glow > 0 ? "fp-room--lit" : ""} ${motion ? "fp-room--motion" : ""} ${open ? "fp-room--open" : ""} ${parts.length > 0 ? "fp-room--joined" : ""}`;
+          const label = labelOf(room);
+          // A room of several rectangles: its floor and walls drawn once for the whole shape.
+          const shape = parts.length > 0 ? shapeOf([rect, ...parts], 2 / (upright ? unitY : unitX), 2 / (upright ? unitX : unitY), (x, y) => (upright ? [ROWS - y, x] : [x, y])) : null;
+          return <Fragment key={room.id}>
+            <section className={roomClass}
+              onPointerDown={editing ? (event) => beginDrag(event, { kind: "move", id: room.id, rect, parts }) : undefined}
+              style={{ ...place(rect), "--fp-glow": glow } as CSSProperties}>
+              {editing && <header className="fp-room__head">
+                <span>{showNames ? "" : room.name}</span>
+                {temperatureText && <span className="fp-room__temp">{temperatureText}</span>}
+                {parts.length < 4 && <button aria-label={t("floorplanAddPart")} className="fp-room__add" onClick={(event) => { event.stopPropagation(); addPart(room); }} onPointerDown={(event) => event.stopPropagation()} title={t("floorplanAddPart")} type="button"><HDIcon name="plus" size={13} /></button>}
+              </header>}
+              {editing && <span aria-hidden="true" className="fp-room__resize fp-room__resize--start" onPointerDown={(event) => beginDrag(event, { kind: "resizeStart", id: room.id, rect })} />}
+              {editing && <span aria-hidden="true" className="fp-room__resize" onPointerDown={(event) => beginDrag(event, { kind: "resize", id: room.id, rect })} />}
+            </section>
+            {parts.map((part, index) => <section className={`${roomClass} fp-room--part`} key={`${room.id}-part-${index}`}
+              onPointerDown={editing ? (event) => beginDrag(event, { kind: "partMove", id: room.id, rect: part, part: index, parts }) : undefined}
+              style={{ ...place(part), "--fp-glow": glow } as CSSProperties}>
+              {editing && <button aria-label={t("floorplanRemovePart")} className="fp-room__remove" onClick={(event) => { event.stopPropagation(); removePart(room, index); }} onPointerDown={(event) => event.stopPropagation()} title={t("floorplanRemovePart")} type="button">×</button>}
+              {editing && <span aria-hidden="true" className="fp-room__resize" onPointerDown={(event) => beginDrag(event, { kind: "partResize", id: room.id, rect: part, part: index, parts })} />}
+            </section>)}
+            {shape && <svg aria-hidden="true" className={`fp-walls${open ? " fp-walls--open" : glow > 0 ? " fp-walls--lit" : ""}`} preserveAspectRatio="none" style={{ "--fp-glow": glow } as CSSProperties} viewBox={upright ? `0 0 ${ROWS} ${COLS}` : `0 0 ${COLS} ${ROWS}`}>
+              <path className="fp-walls__floor" d={shape.floor} />
+              <path className="fp-walls__line" d={shape.walls} />
+            </svg>}
+            <div className="fp-room__spots" style={place(box)}>
+              {showNames && <span className="fp-room__name" onPointerDown={editing ? (event) => beginDrag(event, { kind: "label", id: room.id, spot: label, box: (event.currentTarget.parentElement as HTMLElement).getBoundingClientRect() }) : undefined} style={spotStyle(label)}>
+                {room.name}{temperatureText && <small>{temperatureText}</small>}
+              </span>}
+              {devices.map((entity, index) => {
+                const key = spotKey(room.id, entity.entity_id);
+                const spot = draft?.devices[key] ?? plan.devices[key] ?? plan.devices[entity.entity_id] ?? auto[index];
+                const state = hass.states[entity.entity_id];
+                const on = isOn(hass, entity);
+                const alert = entity.domain === "binary_sensor" && OPENINGS.has(entity.device_class ?? "") && state?.state === "on";
+                const motionOn = entity.domain === "binary_sensor" && MOTION.has(entity.device_class ?? "") && state?.state === "on";
+                const reading = entity.domain === "sensor";
+                const off = isHidden(room.id, entity.entity_id);
+                return <button aria-label={`${entity.name}: ${state?.state ?? ""}`}
+                  className={`fp-spot ${on ? "fp-spot--on" : ""} ${alert ? "fp-spot--alert" : ""} ${motionOn ? "fp-spot--motion" : ""} ${reading ? "fp-spot--reading" : ""} ${off ? "fp-spot--hidden" : ""} ${state?.state === "unavailable" ? "fp-spot--na" : ""}`}
+                  key={entity.entity_id}
+                  onContextMenu={(event) => { event.preventDefault(); if (!editing) openModal(entity); }}
+                  onPointerDown={editing
+                    ? (event) => beginDrag(event, { kind: "spot", id: key, spot, box: (event.currentTarget.parentElement as HTMLElement).getBoundingClientRect() })
+                    : (event) => { event.stopPropagation(); pressStart(entity); }}
+                  onPointerLeave={editing ? undefined : () => { window.clearTimeout(hold.current); hold.current = undefined; }}
+                  onPointerUp={editing ? undefined : () => pressEnd(entity)}
+                  style={spotStyle(spot)}
+                  title={entity.name}
+                  type="button">
+                  {reading ? <><EntityIcon entity={entity} size={16} /><b>{shortReading(state, language)}</b></> : <EntityIcon entity={entity} size={22} />}
+                  {editing && <span className="fp-spot__label">{entity.name}</span>}
+                  {editing && <i aria-label={off ? t("floorplanShowOnPlan") : t("floorplanHideOnPlan")} className="fp-spot__hide" onClick={(event) => { event.stopPropagation(); setHidden(room.id, entity.entity_id, !off); }} onPointerDown={(event) => event.stopPropagation()} role="button">{off ? "+" : "−"}</i>}
+                </button>;
+              })}
+            </div>
+          </Fragment>;
         })}
       </div>}
       {!floor && <p className="hd-picker__empty">{t("floorplanEmpty")}</p>}
@@ -546,11 +681,13 @@ export function PlanWidget({ config, data, hass, t }: { config: HomeDeckConfig; 
   const firstFloor = useMemo(() => {
     const keys = [...new Set(rooms.map((room) => room.floor_id ?? NO_FLOOR))];
     keys.sort((a, b) => (a === NO_FLOOR ? 999 : floorNames[a]?.level ?? 500) - (b === NO_FLOOR ? 999 : floorNames[b]?.level ?? 500));
-    return keys[0];
-  }, [rooms, floorNames]);
+    // The floor set to open first on the Floor plan page, when it is one of these.
+    return plan.first_floor && keys.includes(plan.first_floor) ? plan.first_floor : keys[0];
+  }, [rooms, floorNames, plan.first_floor]);
   const floorRooms = rooms.filter((room) => (room.floor_id ?? NO_FLOOR) === firstFloor);
   const auto = useMemo(() => autoLayout(floorRooms), [floorRooms.map((room) => room.id).join()]);
-  const image = firstFloor ? plan.images?.[firstFloor] : undefined;
+  // The floor's background image, unless the card is set to draw only the rooms (Settings → Home).
+  const image = firstFloor && plan.card_image !== false ? plan.images?.[firstFloor] : undefined;
   // The plan keeps its real proportions whatever the card's size: the image's, or the grid's (3:2) without one.
   const [imageRatio, setImageRatio] = useState<number | null>(null);
   useEffect(() => {
@@ -596,6 +733,7 @@ export function PlanWidget({ config, data, hass, t }: { config: HomeDeckConfig; 
     observer.observe(element);
     return () => observer.disconnect();
   }, [ratio]);
+  const cardSize = box;
   const hidden = new Set(plan.hidden);
   return <button aria-label={planTitle(config, t, "floorplanCardLabel")} className={`widget-card widget-card--interactive fp-card${image ? " fp-card--image" : ""}`} onClick={() => window.dispatchEvent(new CustomEvent("homedeck-navigate", { detail: "plan" }))} type="button">
     <span className="widget-card__label" ref={label}>{planTitle(config, t, "floorplanCardLabel")}</span>
@@ -605,16 +743,23 @@ export function PlanWidget({ config, data, hass, t }: { config: HomeDeckConfig; 
       {floorRooms.map((room) => {
         const rect = plan.rooms[room.id] ?? auto[room.id];
         if (!rect) return null;
+        const parts = plan.parts?.[room.id] ?? [];
+        const box = parts.length > 0 ? boundsOf([rect, ...parts]) : rect;
         const lights = room.entities.filter((entity) => entity.domain === "light");
         const glow = lights.length === 0 ? 0 : lights.filter((entity) => hass.states[entity.entity_id]?.state === "on").length / lights.length;
         const open = room.entities.some((entity) => entity.domain === "binary_sensor" && OPENINGS.has(entity.device_class ?? "") && hass.states[entity.entity_id]?.state === "on");
         // The lights that are on glow where they sit on the plan (the same spots as on the Floor plan page).
-        const shown = roomShown(config, room, data.rooms).filter((entity) => !hidden.has(entity.entity_id));
-        const spots = autoSpots(shown.length, rect, false);
-        const lit = shown.map((entity, index) => ({ entity, spot: plan.devices[entity.entity_id] ?? spots[index] })).filter(({ entity }) => entity.domain === "light" && hass.states[entity.entity_id]?.state === "on");
-        return <i className={`fp-room ${glow > 0 ? "fp-room--lit" : ""} ${open ? "fp-room--open" : ""}`} key={room.id} style={{ left: `${(rect.x / COLS) * 100}%`, top: `${(rect.y / ROWS) * 100}%`, width: `${(rect.w / COLS) * 100}%`, height: `${(rect.h / ROWS) * 100}%`, "--fp-glow": glow, "--fp-unit": "6px" } as CSSProperties}>
-          {lit.map(({ entity, spot }) => <b className="fp-card__light" key={entity.entity_id} style={{ left: `${spot.x * 100}%`, top: `${spot.y * 100}%` }} />)}
-        </i>;
+        const shown = roomShown(config, room, data.rooms).filter((entity) => !hidden.has(spotKey(room.id, entity.entity_id)) && !hidden.has(entity.entity_id));
+        const spots = autoSpots(shown.length, box, false);
+        const lit = shown.map((entity, index) => ({ entity, spot: plan.devices[spotKey(room.id, entity.entity_id)] ?? plan.devices[entity.entity_id] ?? spots[index] })).filter(({ entity }) => entity.domain === "light" && hass.states[entity.entity_id]?.state === "on");
+        const at = (item: Rect): CSSProperties => ({ left: `${(item.x / COLS) * 100}%`, top: `${(item.y / ROWS) * 100}%`, width: `${(item.w / COLS) * 100}%`, height: `${(item.h / ROWS) * 100}%`, "--fp-glow": glow } as CSSProperties);
+        const roomClass = `fp-room ${glow > 0 ? "fp-room--lit" : ""} ${open ? "fp-room--open" : ""} ${parts.length > 0 ? "fp-room--joined" : ""}`;
+        return <Fragment key={room.id}>
+          <i className={roomClass} style={at(rect)} />
+          {parts.map((part, index) => <i className={`${roomClass} fp-room--part`} key={index} style={at(part)} />)}
+          {parts.length > 0 && (() => { const shape = shapeOf([rect, ...parts], 1.5 / Math.max(1, cardSize.width / COLS), 1.5 / Math.max(1, cardSize.height / ROWS), (x, y) => [x, y]); return <svg aria-hidden="true" className={`fp-walls${open ? " fp-walls--open" : glow > 0 ? " fp-walls--lit" : ""}`} preserveAspectRatio="none" style={{ "--fp-glow": glow } as CSSProperties} viewBox={`0 0 ${COLS} ${ROWS}`}><path className="fp-walls__floor" d={shape.floor} /><path className="fp-walls__line" d={shape.walls} /></svg>; })()}
+          <i className="fp-room__spots" style={at(box)}>{lit.map(({ entity, spot }) => <b className="fp-card__light" key={entity.entity_id} style={{ left: `${spot.x * 100}%`, top: `${spot.y * 100}%` }} />)}</i>
+        </Fragment>;
       })}
     </span></span>
   </button>;

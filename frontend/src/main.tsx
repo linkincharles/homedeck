@@ -10,6 +10,7 @@ import { themeExtras } from "./theme-extras";
 import { themePlan } from "./theme-plan";
 import { themeLayouts } from "./theme-layouts";
 import { themeKids } from "./theme-kids";
+import { themePhoto } from "./theme-photo";
 import type { HomeAssistant, HomeDeckPanelInfo } from "./types/home-assistant";
 import { hideSidebar, hideSidebarPreferred, restoreSidebar } from "./sidebar";
 import { hidePageScrollbars } from "./scrollbars";
@@ -25,7 +26,7 @@ class HomeDeckPanel extends HTMLElement {
     installFonts();
     const shadow = this.attachShadow({ mode: "open" });
     const style = document.createElement("style");
-    style.textContent = scaleFonts(`@layer legacy{${styles}}${theme}${themeEditing}${themeExtras}${themePlan}${themeLayouts}${themeKids}`);
+    style.textContent = scaleFonts(`@layer legacy{${styles}}${theme}${themeEditing}${themeExtras}${themePlan}${themeLayouts}${themeKids}${themePhoto}`);
     const mount = document.createElement("div");
     shadow.append(style, mount);
     this.root = createRoot(mount);

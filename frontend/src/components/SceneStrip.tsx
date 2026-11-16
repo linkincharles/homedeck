@@ -7,7 +7,7 @@ import { entityIndex } from "../screens/types";
 import type { DiscoveredEntity, Room } from "../types/discovery";
 import { EditableGrid } from "./EditableGrid";
 import { EntityPicker } from "./EntityPicker";
-import { HDIcon } from "./HDIcon";
+import { EntityIcon, HDIcon } from "./HDIcon";
 
 /** Where the strip keeps its order, hidden scenes and scenes added from other rooms. */
 export const SCENES_STRIP = "home:scenes";
@@ -50,6 +50,12 @@ export function SceneStrip({ props, room }: { props: ScreenProps; room?: Room })
     else if (plan.allow(id)) onLayout(screen, { ...setHidden(layout, key, false), added: [...added, id] });
   };
 
+  // The icon chosen for the scene or script in HomeDeck, or Home Assistant's own (with "Home Assistant
+  // icons" on); else the play and scene icons, as before.
+  const iconOf = (id: string) => {
+    const entity = customize?.lookup(id);
+    return entity?.display_icon ? <EntityIcon entity={entity} size={18} /> : <HDIcon name={isScript(id) ? "play" : "scene"} size={18} />;
+  };
   const nameOf = (id: string) => everywhere.byId.get(id)?.name ?? String(hass.states[id]?.attributes.friendly_name ?? id);
 
   if (shown.length === 0 && !editing) return null;
@@ -68,7 +74,7 @@ export function SceneStrip({ props, room }: { props: ScreenProps; room?: Room })
             key: entityKey(id),
             label: name,
             removal: nativeSet.has(id) ? "hide" : "remove",
-            node: <button onClick={() => void hass.callService(isScript(id) ? "script" : "scene", "turn_on", { entity_id: id })} type="button"><HDIcon name={isScript(id) ? "play" : "scene"} size={18} /><span>{name}</span></button>,
+            node: <button onClick={() => void hass.callService(isScript(id) ? "script" : "scene", "turn_on", { entity_id: id })} type="button">{iconOf(id)}<span>{name}</span></button>,
           };
         })}
         layout={layout}

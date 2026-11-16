@@ -9,6 +9,7 @@ export const VIEW_MODES: Array<{ id: HomeDeckViewMode; name: TranslationKey; des
   { id: "list", name: "viewList", description: "viewListDescription" },
   { id: "focus", name: "viewFocus", description: "viewFocusDescription" },
   { id: "kids", name: "viewKids", description: "viewKidsDescription" },
+  { id: "photo", name: "viewPhoto", description: "viewPhotoDescription" },
 ];
 
 /** Miniature drawing of each layout, so the choice is visual. */
@@ -18,6 +19,7 @@ export function Thumb({ mode }: { mode: HomeDeckViewMode }) {
     {mode === "sidebar" && <><span className="lp-side"><b /><i /><i /><i /><i /></span><span className="lp-main">{Array.from({ length: 4 }, (_, i) => <i className={i === 0 ? "lp-on" : ""} key={i} />)}</span></>}
     {mode === "list" && <><b className="lp-line" /><span className="lp-rows">{Array.from({ length: 5 }, (_, i) => <i className={i === 0 || i === 3 ? "lp-head" : ""} key={i}><em className={i === 1 ? "lp-sw lp-sw--on" : "lp-sw"} /></i>)}</span></>}
     {mode === "kids" && <><span className="lp-kids-sun" /><span className="lp-kids-cloud" /><span className="lp-kids-hill" /><span className="lp-kh"><b /><em /><em /></span><b className="lp-kt" /><span className="lp-kc"><i /><i /><i /></span><span className="lp-kg">{Array.from({ length: 10 }, (_, i) => <i key={i}><em /></i>)}</span><b className="lp-kd" /></>}
+    {mode === "photo" && <><span className="lp-ph-photo"><b /><i /></span><span className="lp-ph-panel">{Array.from({ length: 6 }, (_, i) => <i className={i < 2 ? "lp-on" : ""} key={i} />)}</span></>}
     {mode === "focus" && <><span className="lp-hero"><b /><strong /><em /></span><span className="lp-dots"><i className="lp-on" /><i /><i /></span></>}
   </span>;
 }

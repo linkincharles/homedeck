@@ -18,6 +18,8 @@ class HomeDeckHeaderConfig(TypedDict):
     show_presence: bool
     # A bell in the header with Home Assistant's own notifications.
     ha_notifications: bool
+    # A sensor for the home status (devices on); empty for the built-in light count.
+    status_sensor: str
     presence_people: list[str]
     badges: list[str]
 
@@ -120,6 +122,8 @@ class HomeDeckScreensaverConfig(TypedDict):
     enabled: bool
     delay: int
     show_events: bool
+    # Tomorrow's events too, below today's.
+    show_tomorrow: bool
     show_todo: bool
     # Up to three temperature sensors under the clock, and the size of the clock's text.
     sensors: list[str]
@@ -188,6 +192,7 @@ class HomeDeckConfig(TypedDict):
     # A device's name in one room only, when it shows in several: room screen to entity id to name.
     room_names: dict[str, dict[str, str]]
     floorplan: dict[str, Any]
+    room_photos: dict[str, Any]
     ha_icons: bool
     ha_room_icons: bool
     # Each room shows its scenes in a strip at the top instead of among its cards.
@@ -251,6 +256,7 @@ def default_config() -> HomeDeckConfig:
         "room_scenes": False,
         "room_sensors": False,
         "rooms_by_floor": False,
+        "room_photos": {},
         "free_devices": [],
         "free_rooms": [],
         "view_mode": "grid",
@@ -264,6 +270,7 @@ def default_config() -> HomeDeckConfig:
             "show_weather": True,
             "show_presence": True,
             "ha_notifications": False,
+            "status_sensor": "",
             "presence_people": [],
             "badges": [],
         },
@@ -317,6 +324,7 @@ def default_config() -> HomeDeckConfig:
             "enabled": False,
             "delay": 180,
             "show_events": False,
+            "show_tomorrow": False,
             "show_todo": False,
             "sensors": [],
             "size": "normal",

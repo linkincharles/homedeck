@@ -4,7 +4,7 @@ from typing import Final
 
 DOMAIN: Final = "homedeck"
 NAME: Final = "HomeDeck"
-VERSION: Final = "0.17.0"
+VERSION: Final = "0.18.0"
 
 PANEL_URL: Final = "/homedeck_static"
 PANEL_PATH: Final = "homedeck"
@@ -14,6 +14,8 @@ PANEL_ELEMENT: Final = "homedeck-panel"
 
 SUPPORTED_DOMAINS: Final = {
     "alarm_control_panel",
+    # Only where the person adds them (the panel leaves them out of the rooms on their own).
+    "automation",
     "binary_sensor",
     "button",
     "camera",

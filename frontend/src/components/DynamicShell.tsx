@@ -10,7 +10,7 @@ import { PlayersContext } from "../spotify";
 import { CameraWholeContext, LiveCamerasContext } from "./CameraCard";
 import { OccasionContext, SeasonLayer } from "./SeasonLayer";
 import { SeasonDecor } from "./SeasonDecor";
-import { FONT_SCALE, fontSize, keyBar, motionPrefs, UI_SCALE, uiSize, useDevicePref } from "../devicePrefs";
+import { keyBar, motionPrefs, textScale, UI_SCALE, uiSize, useDevicePref } from "../devicePrefs";
 import { usePlan } from "../plan";
 import { KidsScene } from "./KidsScene";
 import { HassContext } from "./HDIcon";
@@ -214,7 +214,7 @@ export function DynamicShell({ children, config, data, hass, mode = "grid", seas
   const fades = useScrollFades();
   const overlays = useOverlayFit();
   const shellRef = useCallback((element: HTMLDivElement | null) => { fades(element); overlays(element); }, [fades, overlays]);
-  const textSize = useDevicePref(fontSize);
+  const textSize = useDevicePref(textScale);
   const interfaceSize = useDevicePref(uiSize);
   const { pro } = usePlan();
   // The Kids layout draws its own animated scene instead of the regular background.
@@ -224,7 +224,7 @@ export function DynamicShell({ children, config, data, hass, mode = "grid", seas
   const highlight = /^#[0-9a-f]{6}$/i.test(config.highlight_color ?? "") ? config.highlight_color : "#ffc94d";
   const palette = FIXED[config.background.preset] ?? paletteAt(ADAPTIVE[config.background.preset] ?? ADAPTIVE.adaptive_ember, level);
   const style = {
-    "--hd-font": FONT_SCALE[textSize],
+    "--hd-font": textSize,
     "--hd-ui": UI_SCALE[interfaceSize],
     "--ambient-1": palette[0],
     "--ambient-2": palette[1],
@@ -240,7 +240,7 @@ export function DynamicShell({ children, config, data, hass, mode = "grid", seas
     ...(viewportUnit ? { "--hd-vh": viewportUnit } : {}),
   } as CSSProperties;
   return (
-    <div className={`app-shell theme-${config.theme} view-${mode} ${bar.on ? `has-keybar${bar.hideDock ? " keybar-nodock" : ""}` : ""} ${kids ? `kids-scene--${kidsScene}` : ""} ${motion.background ? "ambient-animated" : "ambient-still"} ${motion.cards && pro ? "hd-anim" : ""} ${motion.ui ? "hd-motion" : ""} ${config.cards?.shine && pro ? "hd-shine" : ""}`} data-activity={level.toFixed(2)} ref={shellRef} style={style}>
+    <div className={`app-shell theme-${config.theme} view-${mode} ${bar.on ? `has-keybar${bar.hideDock ? " keybar-nodock" : ""}` : ""} ${kids ? `kids-scene--${kidsScene}` : ""} ${motion.background ? "ambient-animated" : "ambient-still"} ${motion.cards && pro ? "hd-anim" : ""} ${motion.ui ? "hd-motion" : ""} ${config.cards?.shine && pro ? "hd-shine" : ""}`} data-activity={level.toFixed(2)} lang={hass.locale?.language ?? hass.language} ref={shellRef} style={style}>
       <div aria-hidden="true" className="ambient-background"><i /><i /><i /></div>
       {kids && <KidsScene scene={kidsScene} />}
       {season && (season.occasion?.effect || season.fireworks) && <SeasonLayer effect={season.occasion?.effect ?? null} fireworks={season.fireworks} intensity={season.occasion?.phase === "lead" ? 0.45 : 1} />}

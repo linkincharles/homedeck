@@ -73,16 +73,22 @@ export interface KeyBarSlot { label: string; entity: string }
 export interface KeyBarPrefs { on: boolean; hideDock: boolean; slots: KeyBarSlot[] }
 export const KEYBAR_SLOTS = 9;
 const emptySlots = () => Array.from({ length: KEYBAR_SLOTS }, () => ({ label: "", entity: "" }));
-let keyBarCache: { raw: string | null; value: KeyBarPrefs } | null = null;
+let keyBarCache: { raw: string; value: KeyBarPrefs } | null = null;
+/** The bar is a test feature: it only shows on a device where it was unlocked (seven taps on the version
+ * in Settings → System); elsewhere it stays off and out of Settings, whatever was saved. */
+const KEYBAR_UNLOCKED = "homedeck-keybar-unlocked";
+export const keyBarUnlocked = (): boolean => read(KEYBAR_UNLOCKED) === "1";
+export const setKeyBarUnlocked = (on: boolean) => write(KEYBAR_UNLOCKED, on ? "1" : null);
 export const keyBar = (): KeyBarPrefs => {
-  const raw = read(KEYBAR_KEY);
+  const raw = `${read(KEYBAR_KEY) ?? ""}|${keyBarUnlocked() ? 1 : 0}`;
   // The same object while nothing changed, so components reading it don't re-render for nothing.
   if (keyBarCache && keyBarCache.raw === raw) return keyBarCache.value;
   let value: KeyBarPrefs = { on: false, hideDock: false, slots: emptySlots() };
   try {
-    const saved = raw ? JSON.parse(raw) as Partial<KeyBarPrefs> : null;
+    const stored = read(KEYBAR_KEY);
+    const saved = stored ? JSON.parse(stored) as Partial<KeyBarPrefs> : null;
     if (saved) value = {
-      on: saved.on === true,
+      on: saved.on === true && keyBarUnlocked(),
       hideDock: saved.hideDock === true,
       slots: emptySlots().map((slot, index) => {
         const item = saved.slots?.[index];
@@ -161,6 +167,20 @@ const UI_KEY = "homedeck-ui-size";
 const sizeOf = (value: string | null): SizeChoice => (value === "small" || value === "large" ? value : "normal");
 export const fontSize = () => sizeOf(read(FONT_KEY));
 export const setFontSize = (size: SizeChoice) => write(FONT_KEY, size === "normal" ? null : size);
+/** The text size as a scale, from 0.8 to 1.8 (1 = normal); the old "small" and "large" still read. */
+export const TEXT_SCALE_MIN = 0.8;
+export const TEXT_SCALE_MAX = 1.8;
+export const textScale = (): number => {
+  const raw = read(FONT_KEY);
+  if (raw === "small") return 0.88;
+  if (raw === "large") return 1.14;
+  const value = Number(raw);
+  return raw && Number.isFinite(value) ? Math.min(TEXT_SCALE_MAX, Math.max(TEXT_SCALE_MIN, value)) : 1;
+};
+export const setTextScale = (scale: number) => {
+  const value = Math.round(Math.min(TEXT_SCALE_MAX, Math.max(TEXT_SCALE_MIN, scale)) * 100) / 100;
+  write(FONT_KEY, value === 1 ? null : String(value));
+};
 export const uiSize = () => sizeOf(read(UI_KEY));
 export const setUiSize = (size: SizeChoice) => write(UI_KEY, size === "normal" ? null : size);
 export const FONT_SCALE: Record<SizeChoice, number> = { small: 0.88, normal: 1, large: 1.14 };

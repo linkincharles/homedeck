@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.18.0
+
+- Photo layout (Pro, in Settings → Appearance → Layout): a photo of each room fills the screen, with its cards on a panel beside it in your background color. In Edit mode the camera button sends the room's (or the home's) photo, with framing, darkening when the lights are off and a warm glow where the lamp is. The Floor plan fills the whole panel in this layout.
+- Vehicle card (Pro, in Edit mode → Add vehicle): electric, plug-in hybrid, fuel or motorbike, with battery or fuel, range, charging, cable, power, time to full, location, locks, climate and odometer, found on their own on the car's device and the charger. Any reading can be swapped or hidden, and a tap opens the details with the controls.
+- Floor plan: L-shaped (or any shape) rooms with extra parts, one outline and one glow, with no crossing lines; optional room names (a button in Edit mode); choose the floor that opens first; the Floor plan card with or without the background image; in 3D the devices stand up again and the ceiling outline is gone; covers open their details on tap; image visibility down to zero; bigger spots.
+- Home status sensor (in Settings → Home, under Show status): your own sensor instead of the light count at the top of Home.
+- Automations can be added as cards (on/off), and script and scene buttons use the icon you chose.
+- Tomorrow's events on the screensaver (optional): the next day's appointments below today's.
+- Cover details follow the card's options: buttons only or bar only, reversed bar and reversed open/closed.
+- Text size slider (in Settings → This device), from 80% to 180%, with a preview of cards beside it. The screensaver keeps its own size.
+- Easier sensor values: durations in words ("1 h 22 min" instead of "82.53 min") and rounded numbers ("92.9 m" instead of "92.9334359988155 m").
+- People's photos follow the rounder or squarer corners.
+- Image uploads (room photos and floor plans) shrink the image on their own to fit Home Assistant, and say so when the browser can't open the format.
+- New languages: French, Dutch, Italian, Swedish and Turkish.
+
 ## 0.17.0
 
 - Transitions and effects: the tab bar has a highlight that slides to the chosen tab, pages fade in smoothly, a room's content slides in when you switch rooms, cards arrive one after another and detail windows open with a light spring (on phones they rise from the bottom).

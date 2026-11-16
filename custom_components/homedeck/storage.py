@@ -40,7 +40,7 @@ _ALLOWED_BACKGROUNDS = {
     "fixed_lime",
 }
 _ALLOWED_FORECAST_TYPES = {"daily", "hourly"}
-_ALLOWED_VIEW_MODES = {"grid", "sidebar", "list", "focus", "kids"}
+_ALLOWED_VIEW_MODES = {"grid", "sidebar", "list", "focus", "kids", "photo"}
 _ALLOWED_KIDS_SCENES = {"sky", "ocean", "space", "candy", "fairy", "road"}
 _ALLOWED_PAGE_TYPES = {"favorites", "scenes", "custom", "cameras"}
 _MAX_LAYOUTS = 300
@@ -244,6 +244,23 @@ def _normalize_room_names(value: Any) -> dict[str, dict[str, str]]:
     return result
 
 
+def _plan_spot_key(key: str) -> bool:
+    """A device on the plan: its entity id, or "<room id>|<entity id>" for its spot in one room."""
+    room, _, entity = key.rpartition("|")
+    return bool(_BADGE_ENTITY.match(entity)) and len(key) <= _MAX_KEY_LENGTH and (not room or len(room) <= 64)
+
+
+def _plan_rect(rect: Any) -> dict[str, int] | None:
+    """A rectangle on the plan's 48 x 32 grid, or None."""
+    if not isinstance(rect, dict):
+        return None
+    numbers = [rect.get(key) for key in ("x", "y", "w", "h")]
+    if not all(isinstance(number, int) and not isinstance(number, bool) for number in numbers):
+        return None
+    x, y, w, h = numbers
+    return {"x": x, "y": y, "w": w, "h": h} if 0 <= x <= 47 and 0 <= y <= 31 and 1 <= w <= 48 and 1 <= h <= 32 else None
+
+
 def _normalize_floorplan(value: Any) -> dict[str, Any]:
     """The floor plan: each room's rectangle on a 48 x 32 grid, each device's spot inside its room
     (0 to 1 across and down) and the devices left off the plan."""
@@ -264,12 +281,43 @@ def _normalize_floorplan(value: Any) -> dict[str, Any]:
     devices = value.get("devices")
     if isinstance(devices, dict):
         for entity_id, spot in list(devices.items())[:_MAX_LAYOUT_ITEMS * 4]:
-            if not (isinstance(entity_id, str) and _BADGE_ENTITY.match(entity_id) and isinstance(spot, dict)):
+            if not (isinstance(entity_id, str) and _plan_spot_key(entity_id) and isinstance(spot, dict)):
                 continue
             x, y = spot.get("x"), spot.get("y")
             if all(isinstance(number, (int, float)) and not isinstance(number, bool) and 0 <= number <= 1 for number in (x, y)):
                 result["devices"][entity_id] = {"x": round(float(x), 4), "y": round(float(y), 4)}
-    result["hidden"] = [item for item in _unique_strings(value.get("hidden")) if _BADGE_ENTITY.match(item)][: _MAX_LAYOUT_ITEMS * 4]
+    result["hidden"] = [item for item in _unique_strings(value.get("hidden")) if _plan_spot_key(item)][: _MAX_LAYOUT_ITEMS * 4]
+    # Rooms that are not a rectangle: extra rectangles joined to the room (an L or a U shape).
+    parts = value.get("parts")
+    if isinstance(parts, dict):
+        clean_parts: dict[str, list[dict[str, int]]] = {}
+        for room_id, rects in list(parts.items())[:_MAX_LAYOUT_ITEMS]:
+            if not (isinstance(room_id, str) and room_id and len(room_id) <= _MAX_KEY_LENGTH and isinstance(rects, list)):
+                continue
+            kept = [clean for clean in (_plan_rect(rect) for rect in rects[:4]) if clean]
+            if kept:
+                clean_parts[room_id] = kept
+        if clean_parts:
+            result["parts"] = clean_parts
+    # Where each room's name sits on the plan (0 to 1 across and down the room), and whether names show.
+    labels = value.get("labels")
+    if isinstance(labels, dict):
+        clean_labels = {}
+        for room_id, spot in list(labels.items())[:_MAX_LAYOUT_ITEMS]:
+            if not (isinstance(room_id, str) and room_id and len(room_id) <= _MAX_KEY_LENGTH and isinstance(spot, dict)):
+                continue
+            x, y = spot.get("x"), spot.get("y")
+            if all(isinstance(number, (int, float)) and not isinstance(number, bool) and 0 <= number <= 1 for number in (x, y)):
+                clean_labels[room_id] = {"x": round(float(x), 4), "y": round(float(y), 4)}
+        if clean_labels:
+            result["labels"] = clean_labels
+    if value.get("show_names") is True:
+        result["show_names"] = True
+    if value.get("card_image") is False:
+        result["card_image"] = False
+    first = value.get("first_floor")
+    if isinstance(first, str) and first and len(first) <= 64:
+        result["first_floor"] = first
     # A background image per floor: an address on this Home Assistant (or https), and how visible it is.
     images = value.get("images")
     result["images"] = {}
@@ -282,9 +330,36 @@ def _normalize_floorplan(value: Any) -> dict[str, Any]:
                 continue
             opacity = image.get("opacity")
             clean: dict[str, Any] = {"src": src}
-            if isinstance(opacity, (int, float)) and not isinstance(opacity, bool) and 0.1 <= opacity <= 1:
+            if isinstance(opacity, (int, float)) and not isinstance(opacity, bool) and 0 <= opacity <= 1:
                 clean["opacity"] = round(float(opacity), 2)
             result["images"][floor] = clean
+    return result
+
+
+def _normalize_room_photos(value: Any) -> dict[str, dict[str, Any]]:
+    """The Photo layout: a picture per room (and "__home__" for Home), where its focus is, whether it
+    darkens with the lights off and where its lamp glows."""
+    result: dict[str, dict[str, Any]] = {}
+    if not isinstance(value, dict):
+        return result
+    for room, photo in list(value.items())[:100]:
+        if not (isinstance(room, str) and room and len(room) <= 64 and isinstance(photo, dict)):
+            continue
+        src = photo.get("src")
+        if not (isinstance(src, str) and len(src) <= 400 and (src.startswith("/") or src.startswith("https://"))):
+            continue
+        clean: dict[str, Any] = {"src": src}
+        focus = photo.get("x")
+        if isinstance(focus, (int, float)) and not isinstance(focus, bool) and 0 <= focus <= 100:
+            clean["x"] = round(float(focus), 1)
+        if isinstance(photo.get("dim"), bool):
+            clean["dim"] = photo["dim"]
+        glow = photo.get("glow")
+        if isinstance(glow, dict):
+            gx, gy = glow.get("x"), glow.get("y")
+            if all(isinstance(number, (int, float)) and not isinstance(number, bool) and 0 <= number <= 1 for number in (gx, gy)):
+                clean["glow"] = {"x": round(float(gx), 3), "y": round(float(gy), 3)}
+        result[room] = clean
     return result
 
 
@@ -409,11 +484,52 @@ def _normalize_layout(layout: dict[str, Any], folders: bool = True) -> dict[str,
     lists = _normalize_lists(layout.get("lists"))
     if lists:
         clean["lists"] = lists
+    vehicles = _normalize_vehicles(layout.get("vehicles"))
+    if vehicles:
+        clean["vehicles"] = vehicles
     if folders:
         folder_cards = _normalize_folders(layout.get("folders"))
         if folder_cards:
             clean["folders"] = folder_cards
     return clean
+
+
+_VEHICLE_SLOTS = ("battery", "fuel", "range", "charging", "plug", "power", "time", "location", "lock", "climate", "charge_switch", "odometer")
+_VEHICLE_KINDS = ("ev", "phev", "fuel", "moto")
+_HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _normalize_vehicles(value: Any) -> dict[str, dict[str, Any]]:
+    """Vehicle cards by key ("vehicle:<id>"): a name, a kind, an icon and color, the car's and the
+    charger's devices, and the entities chosen by hand ("" leaves a slot out)."""
+    if not isinstance(value, dict):
+        return {}
+    vehicles: dict[str, dict[str, Any]] = {}
+    for key, item in list(value.items())[:_MAX_SECTIONS]:
+        if not isinstance(key, str) or not key.startswith("vehicle:") or len(key) > _MAX_KEY_LENGTH or not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        clean: dict[str, Any] = {"name": name.strip()[:60] if isinstance(name, str) else ""}
+        if item.get("kind") in _VEHICLE_KINDS:
+            clean["kind"] = item["kind"]
+        for field in ("icon", "device", "charger"):
+            text = item.get(field)
+            if isinstance(text, str) and text.strip() and len(text) <= 64:
+                clean[field] = text.strip()
+        color = item.get("color")
+        if isinstance(color, str) and _HEX_COLOR.match(color):
+            clean["color"] = color.lower()
+        entities = item.get("entities")
+        if isinstance(entities, dict):
+            chosen = {
+                slot: entity
+                for slot, entity in entities.items()
+                if slot in _VEHICLE_SLOTS and isinstance(entity, str) and (entity == "" or (len(entity) <= _MAX_KEY_LENGTH and _BADGE_ENTITY.match(entity)))
+            }
+            if chosen:
+                clean["entities"] = chosen
+        vehicles[key] = clean
+    return vehicles
 
 
 def _normalize_folders(value: Any) -> dict[str, dict[str, Any]]:
@@ -530,6 +646,7 @@ def normalize_config(value: Any) -> HomeDeckConfig:
     config["card_link_names"] = _normalize_card_link_names(value.get("card_link_names"))
     config["room_names"] = _normalize_room_names(value.get("room_names"))
     config["floorplan"] = _normalize_floorplan(value.get("floorplan"))
+    config["room_photos"] = _normalize_room_photos(value.get("room_photos"))
     config["hidden_for"] = _normalize_hidden_for(value.get("hidden_for"))
     config["bins"] = _normalize_bins(value.get("bins"))
     # The "recently added" sensors of the Recently added card (up to three).
@@ -565,6 +682,9 @@ def normalize_config(value: Any) -> HomeDeckConfig:
         for key in ("show_clock", "show_weather", "show_presence", "ha_notifications"):
             if isinstance(home.get(key), bool):
                 config["home"][key] = home[key]
+        # A sensor of the person's own for the home status (devices on), instead of the light count.
+        sensor = home.get("status_sensor")
+        config["home"]["status_sensor"] = sensor if isinstance(sensor, str) and _BADGE_ENTITY.match(sensor) and sensor.split(".")[0] in ("sensor", "input_number", "number", "counter", "input_text") else ""
         # The people shown in the header; everyone when the list is empty.
         config["home"]["presence_people"] = [
             item for item in _unique_strings(home.get("presence_people")) if item.startswith("person.") and _BADGE_ENTITY.match(item)
@@ -687,7 +807,7 @@ def normalize_config(value: Any) -> HomeDeckConfig:
 
     screensaver = value.get("screensaver")
     if isinstance(screensaver, dict):
-        for key in ("enabled", "show_events", "show_todo"):
+        for key in ("enabled", "show_events", "show_tomorrow", "show_todo"):
             if isinstance(screensaver.get(key), bool):
                 config["screensaver"][key] = screensaver[key]
         delay = screensaver.get("delay")

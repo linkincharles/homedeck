@@ -13,6 +13,7 @@ import { ProSheet } from "./components/ProSheet";
 import { FocusLayout } from "./screens/layouts/FocusLayout";
 import { ListLayout } from "./screens/layouts/ListLayout";
 import { SidebarLayout, type NavLink } from "./screens/layouts/SidebarLayout";
+import { PhotoLayout } from "./screens/layouts/PhotoLayout";
 import { Screensaver } from "./components/Screensaver";
 import { pauseCameras } from "./cameraPause";
 import { DoorbellPopup, useDoorbell } from "./components/Doorbell";
@@ -295,7 +296,9 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
     if (!data || !view) return null;
     const byId = new Map(data.rooms.map((room) => [room.id, room]));
     const selected = panelRoomIds(view, data.rooms, pro).map((roomId) => byId.get(roomId)).filter((room): room is DiscoveryResponse["rooms"][number] => Boolean(room));
-    const rooms = restrictRooms(selected, allowed);
+    // Automations are never a room's own cards: they show only where they are added (Edit → Add devices),
+    // so the rooms look as before for everyone with automations in an area.
+    const rooms = restrictRooms(selected, allowed).map((room) => (room.entities.some((entity) => entity.domain === "automation") ? { ...room, entities: room.entities.filter((entity) => entity.domain !== "automation") } : room));
     return {
       ...data,
       rooms,
@@ -423,7 +426,8 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
   // The floor plan (Pro) is its own screen in every layout; the Sidebar layout shows it beside its menu.
   const planOpen = activePage === "plan" && !selectedRoom && Boolean(view.navigation.plan);
   let screen;
-  if (mode === "sidebar") screen = <SidebarLayout {...screenProps} custom={planOpen ? <FloorPlan {...screenProps} embedded onOpenRoom={openRoom} /> : undefined} customId={planOpen ? "plan" : undefined} links={links} onNavigate={navigate} onSelectRoom={openRoom} page={pageRef} roomId={selectedRoom?.id ?? null} />;
+  if (mode === "photo") screen = <PhotoLayout {...screenProps} activePage={activePage} links={links} onGo={(target, roomId) => { setSelectedRoomId(roomId ?? null); setActivePage(target); }} page={pageRef} plan={planOpen ? <FloorPlan {...screenProps} embedded onOpenRoom={openRoom} /> : undefined} roomId={selectedRoomId} />;
+  else if (mode === "sidebar") screen = <SidebarLayout {...screenProps} custom={planOpen ? <FloorPlan {...screenProps} embedded onOpenRoom={openRoom} /> : undefined} customId={planOpen ? "plan" : undefined} links={links} onNavigate={navigate} onSelectRoom={openRoom} page={pageRef} roomId={selectedRoom?.id ?? null} />;
   else if (planOpen) screen = <FloorPlan {...screenProps} onOpenRoom={openRoom} />;
   else if (mode === "list") screen = <ListLayout {...screenProps} onSelectRoom={(roomId) => openRoom(roomId)} page={pageRef} roomId={selectedRoom?.id ?? null} />;
   else if (mode === "focus") screen = <FocusLayout {...screenProps} onRoomChange={(roomId) => { setSelectedRoomId(roomId); setActivePage(roomId ? "rooms" : "home"); }} page={pageRef} roomId={selectedRoom?.id ?? null} />;
@@ -435,11 +439,11 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
 
   // A new page fades in (transitions on): the key changes with the page, not with the room inside it, which
   // animates its own content; the Sidebar layout animates its right side itself.
-  const pageKey = mode === "sidebar" ? "sidebar" : selectedRoom ? "rooms" : activePage;
+  const pageKey = mode === "sidebar" || mode === "photo" ? mode : selectedRoom ? "rooms" : activePage;
   return withPlan(
     <DynamicShell config={view} data={visibleData} hass={hass} mode={mode} season={season}>
       <Fragment key={pageKey}>{screen}</Fragment>
-      {mode !== "sidebar" && <NavigationDock active={active} config={view} editing={editing} hasMedia={hasMedia} hasScenes={hasScenes} hasSecurity={hasSecurity} hasCameras={hasCameras} onNavigate={navigate} onOrder={(order) => void updateConfig((current) => ({ ...current, navigation: { ...current.navigation, order } }))} t={t} />}
+      {mode !== "sidebar" && mode !== "photo" && <NavigationDock active={active} config={view} editing={editing} hasMedia={hasMedia} hasScenes={hasScenes} hasSecurity={hasSecurity} hasCameras={hasCameras} onNavigate={navigate} onOrder={(order) => void updateConfig((current) => ({ ...current, navigation: { ...current.navigation, order } }))} t={t} />}
       {!locked && <button aria-label={editing ? t("doneEditing") : t("editScreen")} aria-pressed={editing} className={editing ? "edit-fab edit-fab--on" : "edit-fab"} onClick={() => setEditing((current) => !current)} type="button">
         <HDIcon name={editing ? "check" : "pencil"} size={20} />
       </button>}

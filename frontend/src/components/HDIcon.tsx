@@ -15,6 +15,7 @@ function HaStateIcon({ entityId, hass, size }: { entityId: string; hass: HomeAss
 
 export type IconName =
   | "arrow"
+  | "tag"
   | "bed"
   | "chevron"
   | "climate"
@@ -231,6 +232,7 @@ const paths: Record<IconName, ReactNode> = {
   shuffle: <><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></>,
   repeat: <><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /></>,
   repeat1: <><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3M11 10h1v4" /></>,
+  tag: <><path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0Z" /><circle cx="8.2" cy="8.2" r="1.5" /></>,
   note: <><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>,
   speaker: <><rect x="5" y="2" width="14" height="20" rx="2" /><circle cx="12" cy="14" r="4" /><path d="M12 6h.01" /></>,
   grip: <><circle cx="9" cy="6" r="1.2" /><circle cx="15" cy="6" r="1.2" /><circle cx="9" cy="12" r="1.2" /><circle cx="15" cy="12" r="1.2" /><circle cx="9" cy="18" r="1.2" /><circle cx="15" cy="18" r="1.2" /></>,
@@ -328,6 +330,7 @@ export function domainIcon(domain: string): IconName {
     light: "light",
     lock: "lock",
     media_player: "media",
+    automation: "repeat",
     scene: "scene",
     script: "play",
     select: "list",

@@ -82,7 +82,7 @@ export function Screensaver({ config, hass, language, onDismiss, rooms, t }: Scr
         return occasion?.phase === "day" && occasion.greeting ? <div className="hd-saver__season">{occasion.greeting}</div> : null;
       })()}
     </div>
-    {(config.screensaver.show_events || config.screensaver.show_todo) && <SaverAgenda config={config} hass={hass} language={language} showEvents={Boolean(config.screensaver.show_events)} showTodo={Boolean(config.screensaver.show_todo)} t={t} />}
+    {(config.screensaver.show_events || config.screensaver.show_todo) && <SaverAgenda config={config} hass={hass} language={language} showEvents={Boolean(config.screensaver.show_events)} showTomorrow={Boolean(config.screensaver.show_tomorrow)} showTodo={Boolean(config.screensaver.show_todo)} t={t} />}
     <div className="hd-saver__hint">{t("tapToReturn")}</div>
   </div>;
 }

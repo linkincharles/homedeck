@@ -20,7 +20,7 @@ import { SeasonPreview } from "../components/SeasonLayer";
 import type { Room } from "../types/discovery";
 import type { HomeAssistant } from "../types/home-assistant";
 import { hideSidebarPreferred, setHideSidebarPreferred } from "../sidebar";
-import { fontSize, setFontSize, setUiSize, uiSize, type SizeChoice, childLockEnabled, keyBar, KEYBAR_SLOTS, motionPrefs, setChildLockEnabled, setKeyBar, setMotionPrefs, deviceBackground, deviceKidsScene, deviceViewMode, editingLocked, keepAwakeMode, setDeviceBackground, setDeviceKidsScene, setDeviceViewMode, setEditingLocked, setKeepAwakeMode, setSpotifySpeaker, spotifySpeaker, useDevicePref } from "../devicePrefs";
+import { setTextScale, setUiSize, textScale, TEXT_SCALE_MAX, TEXT_SCALE_MIN, uiSize, type SizeChoice, childLockEnabled, keyBar, keyBarUnlocked, KEYBAR_SLOTS, setKeyBarUnlocked, motionPrefs, setChildLockEnabled, setKeyBar, setMotionPrefs, deviceBackground, deviceKidsScene, deviceViewMode, editingLocked, keepAwakeMode, setDeviceBackground, setDeviceKidsScene, setDeviceViewMode, setEditingLocked, setKeepAwakeMode, setSpotifySpeaker, spotifySpeaker, useDevicePref } from "../devicePrefs";
 import { isSilk } from "../keepAwake";
 import { deactivateLicense, getLicense, openPortal, type LicenseStatus } from "../api/license";
 import { LICENSE_ERRORS } from "../components/ProSheet";
@@ -287,6 +287,7 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
             <Row label={t("screensaverEnable")}>{plan.pro ? <Switch checked={draft.screensaver.enabled} label={t("screensaverEnable")} onChange={(enabled) => update({ screensaver: { ...draft.screensaver, enabled } })} /> : <button className="hd-pill" onClick={() => plan.upsell("feature")} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
             <Row label={t("screensaverDelay")}><HDSelect ariaLabel={t("screensaverDelay")} disabled={!draft.screensaver.enabled} onChange={(value) => update({ screensaver: { ...draft.screensaver, delay: Number(value) } })} options={SAVER_DELAYS.map((seconds) => ({ value: String(seconds), label: seconds < 60 ? `${seconds} s` : `${seconds / 60} min` }))} value={String(draft.screensaver.delay)} /></Row>
             {plan.pro && draft.screensaver.enabled && Object.keys(hass.states).some((id) => id.startsWith("calendar.")) && <Row description={t("saverAgendaDescription")} label={t("saverEvents")}><Switch checked={Boolean(draft.screensaver.show_events)} label={t("saverEvents")} onChange={(show_events) => update({ screensaver: { ...draft.screensaver, show_events } })} /></Row>}
+            {plan.pro && draft.screensaver.enabled && draft.screensaver.show_events && Object.keys(hass.states).some((id) => id.startsWith("calendar.")) && <Row description={t("saverTomorrowDescription")} label={t("saverTomorrow")}><Switch checked={Boolean(draft.screensaver.show_tomorrow)} label={t("saverTomorrow")} onChange={(show_tomorrow) => update({ screensaver: { ...draft.screensaver, show_tomorrow } })} /></Row>}
             {plan.pro && draft.screensaver.enabled && Object.keys(hass.states).some((id) => id.startsWith("todo.")) && <Row description={t("saverAgendaDescription")} label={t("saverTodo")}><Switch checked={Boolean(draft.screensaver.show_todo)} label={t("saverTodo")} onChange={(show_todo) => update({ screensaver: { ...draft.screensaver, show_todo } })} /></Row>}
             {plan.pro && draft.screensaver.enabled && <SaverTemperatures chosen={draft.screensaver.sensors ?? []} hass={hass} onChange={(sensors) => update({ screensaver: { ...draft.screensaver, sensors } })} t={t} />}
             {plan.pro && draft.screensaver.enabled && <Row description={t("saverSizeDescription")} label={t("saverSize")}><HDSelect ariaLabel={t("saverSize")} onChange={(size) => update({ screensaver: { ...draft.screensaver, size: size as "normal" | "large" } })} options={[{ value: "normal", label: t("saverSizeNormal") }, { value: "large", label: t("saverSizeLarge") }]} value={draft.screensaver.size ?? "normal"} /></Row>}
@@ -306,6 +307,7 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
           <section className="st-panel">
             <h2>{t("homeActions")}</h2>
             <Row label={t("showStatus")}><Switch checked={draft.visibility.home_cards.status} label={t("showStatus")} onChange={(status) => update({ visibility: { ...draft.visibility, home_cards: { ...draft.visibility.home_cards, status } } })} /></Row>
+            <Row description={t("statusSensorDescription")} label={t("statusSensor")}><HDSelect ariaLabel={t("statusSensor")} onChange={(sensor) => update({ home: { ...draft.home, status_sensor: sensor } })} options={[{ value: "", label: t("statusSensorLights") }, ...Object.values(hass.states).filter((state) => /^(sensor|input_number|number|counter|input_text)\./.test(state.entity_id)).sort((a, b) => String(a.attributes.friendly_name ?? a.entity_id).localeCompare(String(b.attributes.friendly_name ?? b.entity_id))).map((state) => ({ value: state.entity_id, label: String(state.attributes.friendly_name ?? state.entity_id) }))]} value={draft.home.status_sensor ?? ""} /></Row>
             <Row label={t("turnAllOn")}><Switch checked={draft.global_actions.lights_on} label={t("turnAllOn")} onChange={(lights_on) => update({ global_actions: { ...draft.global_actions, lights_on } })} /></Row>
             <Row label={t("turnAllOff")}><Switch checked={draft.global_actions.lights_off} label={t("turnAllOff")} onChange={(lights_off) => update({ global_actions: { ...draft.global_actions, lights_off } })} /></Row>
             <Row label={t("showScenesStrip")}><Switch checked={draft.visibility.home_cards.scenes} label={t("showScenesStrip")} onChange={(scenes) => update({ visibility: { ...draft.visibility, home_cards: { ...draft.visibility.home_cards, scenes } } })} /></Row>
@@ -453,7 +455,7 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
           <Row description={t("reloadDevicesDescription")} label={t("reloadDevices")}><button className="hd-pill" onClick={onReload} type="button"><HDIcon name="refresh" size={16} />{t("refresh")}</button></Row>
           <BackupRows draft={draft} onImport={(imported) => setDraft((current) => ({ ...current, ...imported }))} t={t} version={version} />
           <Row description={t("restartSetupDescription")} label={t("restartSetup")}><button className="hd-pill" disabled={saving} onClick={() => void save({ ...draft, onboarding_complete: false }).then(onClose)} type="button">{t("restartSetup")}</button></Row>
-          <Row description={t("madeWith")} label={version ? t("version") : "HomeDeck"}>{version && <span className="st-value">{version}</span>}</Row>
+          <VersionRow t={t} version={version} />
         </section>}
       </section>
     </div>
@@ -562,7 +564,10 @@ function ExtraCardsPanel({ draft, hass, onUpsell, pro, t, update }: { draft: Hom
         {fields.map(([key, name]) => <div className="st-sub__row" key={key}><span>{t(name)}</span><HDSelect ariaLabel={t(name)} onChange={(id) => update({ energy: { ...energy, [key]: id } })} options={[{ value: "", label: t("none") }, ...[...new Set([...(energy[key] ? [energy[key]] : []), ...candidates[key].map((state) => state.entity_id)])].map((id) => ({ value: id, label: label(id) }))]} value={energy[key]} /></div>)}
       </div>}
     </div>
-    <Row description={t("floorplanCardDescription")} label={t("floorplanCard")}>{pro ? <Switch checked={Boolean(widgets.plan)} label={t("floorplanCard")} onChange={(plan) => set({ plan })} /> : <button className="hd-pill" onClick={onUpsell} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
+    <div className="st-group">
+          <Row description={t("floorplanCardDescription")} label={t("floorplanCard")}>{pro ? <Switch checked={Boolean(widgets.plan)} label={t("floorplanCard")} onChange={(plan) => set({ plan })} /> : <button className="hd-pill" onClick={onUpsell} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
+      {pro && widgets.plan && Object.keys(draft.floorplan?.images ?? {}).length > 0 && <div className="st-sub"><label className="st-sub__row"><span>{t("floorplanCardImage")}</span><Switch checked={draft.floorplan?.card_image !== false} label={t("floorplanCardImage")} onChange={(on) => update({ floorplan: { ...(draft.floorplan ?? { rooms: {}, devices: {}, hidden: [] }), card_image: on ? undefined : false } })} /></label></div>}
+    </div>
     <div className="st-group">
       <Row description={t("recentMediaDescription")} label={t("recentMediaCard")}>{pro ? <Switch checked={Boolean(widgets.recent)} label={t("recentMediaCard")} onChange={(recent) => set({ recent })} /> : <button className="hd-pill" onClick={onUpsell} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
       {pro && widgets.recent && <div className="st-sub">
@@ -657,6 +662,7 @@ function DevicePrefsRows({ general, generalBackground, generalKids, hass, onUpse
   const setMotion = (patch: Partial<typeof motion>) => setMotionPrefs({ ...motion, ...patch });
   const locked = useDevicePref(editingLocked);
   const childLock = useDevicePref(childLockEnabled);
+  const barUnlocked = useDevicePref(keyBarUnlocked);
   const view = useDevicePref(deviceViewMode);
   const background = useDevicePref(deviceBackground);
   const kidsScene = useDevicePref(deviceKidsScene);
@@ -669,7 +675,7 @@ function DevicePrefsRows({ general, generalBackground, generalKids, hass, onUpse
   const sceneThumb = (scene: string) => <span className={`st-kids-scene st-kids-scene--${scene}`} />;
   const speaker = useDevicePref(spotifySpeaker);
   const awake = useDevicePref(keepAwakeMode);
-  const textSize = useDevicePref(fontSize);
+  const textSize = useDevicePref(textScale);
   const interfaceSize = useDevicePref(uiSize);
   const sizes = [{ value: "small", label: t("sizeSmall") }, { value: "normal", label: t("sizeNormal") }, { value: "large", label: t("sizeLarge") }];
   const spotify = Object.values(hass.states).find((state) => state.entity_id.startsWith("media_player.") && (state.entity_id.includes("spotify") || state.attributes.source === "Spotify" || String(state.attributes.friendly_name ?? "").toLowerCase().includes("spotify")));
@@ -680,7 +686,7 @@ function DevicePrefsRows({ general, generalBackground, generalKids, hass, onUpse
     {kids
       ? <Row label={t("deviceKidsScene")}><HDSelect ariaLabel={t("deviceKidsScene")} onChange={setDeviceKidsScene} options={[{ value: "", label: t("useGeneral"), thumb: sceneThumb(generalKids) }, ...KIDS_SCENES.map(([scene, label]) => ({ value: scene, label: t(label), thumb: sceneThumb(scene) }))]} value={kidsScene} /></Row>
       : <Row label={t("deviceBackground")}><HDSelect ariaLabel={t("deviceBackground")} onChange={setDeviceBackground} options={[{ value: "", label: t("useGeneral"), thumb: backgroundThumb(generalBackground) }, ...BACKGROUNDS.map(([preset, label]) => ({ value: preset, label: `${t(label)}${pro_(FREE_BACKGROUNDS.includes(preset))}`, thumb: backgroundThumb(preset) }))]} value={background} /></Row>}
-    <Row description={t("deviceTextSizeDescription")} label={t("deviceTextSize")}><HDSegmented ariaLabel={t("deviceTextSize")} onChange={(size) => setFontSize(size as SizeChoice)} options={sizes} value={textSize} /></Row>
+    <TextSizeRow t={t} value={textSize} />
     <Row description={t("deviceUiSizeDescription")} label={t("deviceUiSize")}><HDSegmented ariaLabel={t("deviceUiSize")} onChange={(size) => setUiSize(size as SizeChoice)} options={sizes} value={interfaceSize} /></Row>
     <h3 className="st-category">{t("deviceCatMotion")}</h3>
     <Row description={t("motionUiDescription")} label={t("motionUi")}><Switch checked={motion.ui} label={t("motionUi")} onChange={(ui) => setMotion({ ui })} /></Row>
@@ -691,7 +697,7 @@ function DevicePrefsRows({ general, generalBackground, generalKids, hass, onUpse
     <Row description={`${t("keepAwakeDescription")}${isSilk() ? ` ${t("keepAwakeEcho")}` : ""}`} label={t("keepAwake")}><HDSelect ariaLabel={t("keepAwake")} onChange={(mode) => setKeepAwakeMode(mode as "auto" | "on" | "off")} options={[{ value: "auto", label: t("keepAwakeAuto") }, { value: "on", label: t("keepAwakeOn") }, { value: "off", label: t("keepAwakeOff") }]} value={awake} /></Row>
     <Row description={t("lockEditingDescription")} label={t("lockEditing")}><Switch checked={locked} label={t("lockEditing")} onChange={setEditingLocked} /></Row>
     <Row description={t("childLockDescription")} label={t("childLock")}><Switch checked={childLock} label={t("childLock")} onChange={setChildLockEnabled} /></Row>
-    <KeyBarRows hass={hass} t={t} />
+    {barUnlocked && <KeyBarRows hass={hass} t={t} />}
     {spotify && <h3 className="st-category">{t("deviceCatMusic")}</h3>}
     {spotify && <Row description={t("spotifySpeakerDescription")} label={t("spotifySpeaker")}><HDSelect ariaLabel={t("spotifySpeaker")} onChange={setSpotifySpeaker} options={[{ value: "", label: t("spotifySpeakerAny") }, ...[...new Set([...(speaker ? [speaker] : []), ...sources])].map((source) => ({ value: source, label: source }))]} value={speaker} /></Row>}
   </>;
@@ -792,6 +798,45 @@ function SaverTemperatures({ chosen, hass, onChange, t }: { chosen: string[]; ha
 const KEYBAR_DOMAINS = ["script", "scene", "light", "switch", "input_boolean", "fan", "cover", "media_player", "button", "input_button", "automation"];
 
 /** This device's shortcut bar: on or off, the dock hidden or not, and 9 parts each with a name and what it runs. */
+/** Text size on this device: a slider from 80% to 180%, with a card beside it drawn at the size chosen. */
+function TextSizeRow({ t, value }: { t: (key: TranslationKey) => string; value: number }) {
+  const [draft, setDraft] = useState<number | null>(null);
+  const shown = draft ?? value;
+  const commit = () => { if (draft != null) { setTextScale(draft); setDraft(null); } };
+  return <div className="st-textsize">
+    <Row description={t("deviceTextSizeDescription")} label={t("deviceTextSize")}><span className="st-value">{Math.round(shown * 100)}%</span></Row>
+    <div className="st-textsize__body">
+      <div className="st-textsize__control">
+        <span aria-hidden="true" className="st-textsize__a st-textsize__a--small">A</span>
+        <input aria-label={t("deviceTextSize")} max={TEXT_SCALE_MAX} min={TEXT_SCALE_MIN} onChange={(event) => setDraft(Number(event.target.value))} onKeyUp={commit} onPointerUp={commit} onTouchEnd={commit} step={0.05} type="range" value={shown} />
+        <span aria-hidden="true" className="st-textsize__a st-textsize__a--large">A</span>
+        {shown !== 1 && <button className="hd-pill" onClick={() => { setDraft(null); setTextScale(1); }} type="button">{t("sizeNormal")}</button>}
+      </div>
+      <div aria-hidden="true" className="st-textsize__preview" style={{ "--hd-font": shown } as CSSProperties}>
+        <div className="device-tile device-tile--active">
+          <div className="device-tile__top"><span className="device-tile__icon"><HDIcon name="light" size={22} /></span></div>
+          <div className="device-tile__copy"><strong>{t("textSizeSampleName")}</strong><span>{t("textSizeSampleState")}</span></div>
+        </div>
+        <div className="device-tile">
+          <div className="device-tile__top"><span className="device-tile__icon"><HDIcon name="sensor" size={22} /></span></div>
+          <div className="device-tile__copy"><strong>{t("textSizeSampleSensor")}</strong><span>22,5 °C</span></div>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+/** The version; seven quick taps on it unlock (or lock again) the test shortcut bar on this device. */
+function VersionRow({ t, version }: { t: (key: TranslationKey) => string; version?: string }) {
+  const taps = useRef<number[]>([]);
+  const tap = () => {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((at) => now - at < 3000), now];
+    if (taps.current.length >= 7) { taps.current = []; setKeyBarUnlocked(!keyBarUnlocked()); }
+  };
+  return <Row description={t("madeWith")} label={version ? t("version") : "HomeDeck"}>{version && <span className="st-value" onClick={tap} role="presentation">{version}</span>}</Row>;
+}
+
 function KeyBarRows({ hass, t }: { hass: HomeAssistant; t: (key: TranslationKey) => string }) {
   const prefs = useDevicePref(keyBar);
   const name = (id: string) => String(hass.states[id]?.attributes.friendly_name ?? id);

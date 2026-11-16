@@ -78,7 +78,35 @@ export function displayState(state: HassEntity | undefined, entity: DiscoveredEn
   const when = friendlyDate(state, language);
   if (when) return when;
   const unit = state.attributes.unit_of_measurement;
+  const friendly = friendlyNumber(state.state, unit ? String(unit) : "", language);
+  if (friendly) return friendly;
   return unit ? `${state.state} ${unit}` : state.state.replaceAll("_", " ");
+}
+
+const DURATION_SECONDS: Record<string, number> = { ms: 0.001, s: 1, sec: 1, min: 60, h: 3600, d: 86400 };
+
+/** A numeric reading made easy to read: a duration as "1 h 23 min" (from s, min, h or d) and any other
+ * number rounded to a sensible size ("92.9 m" instead of "92.9334359988155 m"), in the user's number format. */
+export function friendlyNumber(raw: string, unit: string, language?: string): string | null {
+  if (!/^-?\d+(\.\d+)?(e-?\d+)?$/i.test(raw.trim())) return null;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return null;
+  const factor = DURATION_SECONDS[unit.toLowerCase()];
+  if (factor !== undefined) {
+    const total = Math.round(Math.abs(value) * factor);
+    const sign = value < 0 ? "-" : "";
+    const days = Math.floor(total / 86400), hours = Math.floor((total % 86400) / 3600), minutes = Math.floor((total % 3600) / 60), seconds = total % 60;
+    if (days) return `${sign}${days} d${hours ? ` ${hours} h` : ""}`;
+    if (hours) return `${sign}${hours} h${minutes ? ` ${minutes} min` : ""}`;
+    if (minutes) return `${sign}${minutes} min`;
+    return `${sign}${seconds} s`;
+  }
+  const size = Math.abs(value);
+  const digits = size >= 100 ? 0 : size >= 10 ? 1 : 2;
+  let text: string;
+  try { text = new Intl.NumberFormat(language || undefined, { maximumFractionDigits: digits, useGrouping: size >= 10000 }).format(value); }
+  catch { text = String(Number(value.toFixed(digits))); }
+  return unit ? `${text} ${unit}` : text;
 }
 
 interface EntityCardProps {

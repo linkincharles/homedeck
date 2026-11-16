@@ -27,7 +27,7 @@ export type HomeDeckBackgroundPreset =
   | "fixed_amber"
   | "fixed_lime";
 
-export type HomeDeckViewMode = "grid" | "sidebar" | "list" | "focus" | "kids";
+export type HomeDeckViewMode = "grid" | "sidebar" | "list" | "focus" | "kids" | "photo";
 /** The animated scenes behind the Kids layout. */
 export type HomeDeckKidsScene = "sky" | "ocean" | "space" | "candy" | "fairy" | "road";
 
@@ -61,6 +61,26 @@ export interface ScreenLayout {
   lists?: Record<string, HomeDeckEntityList>;
   /** Folder cards placed in the order (Pro), by key ("folder:<id>"). */
   folders?: Record<string, HomeDeckFolder>;
+  /** Vehicle cards placed in the order (Pro), by key ("vehicle:<id>"). */
+  vehicles?: Record<string, HomeDeckVehicle>;
+}
+
+/** What a vehicle card reads, each found on its own on the car's (or charger's) device unless chosen. */
+export type VehicleSlot = "battery" | "fuel" | "range" | "charging" | "plug" | "power" | "time" | "location" | "lock" | "climate" | "charge_switch" | "odometer";
+export type VehicleKind = "ev" | "phev" | "fuel" | "moto";
+
+/** A vehicle card (Pro): a car (or motorbike) with its battery or fuel, charging, range and where it is. */
+export interface HomeDeckVehicle {
+  name: string;
+  kind?: VehicleKind;
+  icon?: string;
+  /** The card's accent, as a hex color. */
+  color?: string;
+  /** Home Assistant device of the vehicle and, optionally, of its charger (wallbox or smart plug). */
+  device?: string;
+  charger?: string;
+  /** Entities chosen by hand, by slot; "" leaves that slot out. Missing slots are found on their own. */
+  entities?: Partial<Record<VehicleSlot, string>>;
 }
 
 /** A card that opens a window with its own cards, arranged like a room (never another folder). */
@@ -105,6 +125,8 @@ export interface HomeDeckConfig {
   room_sensors?: boolean;
   /** The rooms list of the Rooms tab grouped under Home Assistant's floors (off by default). */
   rooms_by_floor?: boolean;
+  /** The Photo layout: a picture per room id ("__home__" for Home), sent from the panel. */
+  room_photos?: Record<string, HomeDeckRoomPhoto>;
   /** Per device, set in its details: its icon ("ha" or a HomeDeck icon) and whether a tap asks to confirm. */
   entity_options?: Record<string, HomeDeckEntityOptions>;
   /** Extra devices shown inside double and large cards, by card key ("entity:…", "room:…"). */
@@ -139,6 +161,8 @@ export interface HomeDeckConfig {
     show_presence: boolean;
     /** A bell in the header with Home Assistant's own notifications (off by default). */
     ha_notifications?: boolean;
+    /** A sensor of the person's own for the home status (how many devices are on); empty for the light count. */
+    status_sensor?: string;
     /** The people shown in the header (person entities); everyone when empty. */
     presence_people?: string[];
     /** Entities shown as small notices beside the presence avatars, only when there is something to notice. */
@@ -226,6 +250,8 @@ export interface HomeDeckConfig {
     delay: number;
     /** Under the clock: today's events and the reminders due (same calendars and list as the agenda). */
     show_events?: boolean;
+    /** Tomorrow's events too, below today's (off by default). */
+    show_tomorrow?: boolean;
     show_todo?: boolean;
     /** Up to eight temperature sensors under the clock, each named by its room. */
     sensors?: string[];
@@ -382,11 +408,31 @@ export interface HomeDeckEnergy {
 }
 
 
+export interface HomeDeckRoomPhoto {
+  src: string;
+  /** Horizontal focus, 0 (left) to 100 (right); 50 when unset. */
+  x?: number;
+  /** Darkens while the room's lights are off (on unless false). */
+  dim?: boolean;
+  /** Where the lamp is, 0 to 1 across and down: a warm glow there while a light is on. */
+  glow?: { x: number; y: number };
+}
+
 export interface HomeDeckFloorplanRect { x: number; y: number; w: number; h: number }
 export interface HomeDeckFloorplan {
   rooms: Record<string, HomeDeckFloorplanRect>;
   devices: Record<string, { x: number; y: number }>;
   hidden: string[];
-  /** A background image per floor (the real plan), and how visible it is (0.1–1). */
+  /** A background image per floor (the real plan), and how visible it is (0–1). */
   images?: Record<string, { src: string; opacity?: number }>;
+  /** Extra rectangles joined to a room, for rooms that are not a rectangle (an L or a U), by room id. */
+  parts?: Record<string, HomeDeckFloorplanRect[]>;
+  /** Where each room's name sits (0–1 across and down the room), by room id. */
+  labels?: Record<string, { x: number; y: number }>;
+  /** Room names on the plan outside Edit mode (off by default). */
+  show_names?: boolean;
+  /** The floor the plan (and its Home card) opens on; the lowest when unset. */
+  first_floor?: string;
+  /** The background image on the Home card too (on unless false); without it, the card draws the rooms. */
+  card_image?: boolean;
 }

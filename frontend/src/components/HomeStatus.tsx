@@ -1,3 +1,4 @@
+import { homeStatusText } from "../homeStatus";
 import { isRoomLight } from "../personalize";
 import { useMemo, useState } from "react";
 import type { TranslationKey } from "../i18n";
@@ -32,7 +33,7 @@ export function HomeStatus({ config, data, hass, t }: HomeStatusProps) {
     <section className="home-status" aria-label={t("homeStatus")}>
       <div>
         <span className="eyebrow">{t("homeStatus")}</span>
-        <h1>{activeLights === 1 ? t("oneLightOn") : t("lightsOn").replace("{count}", String(activeLights))}</h1>
+        <h1>{homeStatusText(config, hass, activeLights, t)}</h1>
         <p>{data.counts.rooms} {t("rooms")} · {data.counts.devices} {t("devices")}</p>
       </div>
       <div className="global-actions">

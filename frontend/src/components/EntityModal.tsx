@@ -90,7 +90,12 @@ function EntityDetails({ entity, hass, language, onClose, roomName, t }: EntityM
   const call = (domain: string, service: string, data: Record<string, unknown> = {}) => runOnce(() => hass.callService(domain, service, { entity_id: entity.entity_id, ...data }));
 
   const domain = entity.domain;
-  const on = Boolean(state && (domain === "cover" ? coverOn(entity, state.state) : ACTIVE.has(state.state)));
+  // The card's options (reversed state or position, buttons or bar only) apply here too.
+  const own = customize?.lookup(entity.entity_id) ?? entity;
+  const on = Boolean(state && (domain === "cover" ? coverOn(own, state.state) : ACTIVE.has(state.state)));
+  const coverPosition = typeof attrs.current_position === "number" ? attrs.current_position : null;
+  const coverBar = coverPosition != null && own.cover_control !== "buttons";
+  const coverButtons = !(coverBar && own.cover_control === "slider");
   const colorModes = Array.isArray(attrs.supported_color_modes) ? attrs.supported_color_modes.map(String) : [];
   const dimmable = typeof attrs.brightness === "number" || colorModes.some((mode) => mode !== "onoff");
   const colorful = colorModes.some((mode) => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(mode));
@@ -101,7 +106,11 @@ function EntityDetails({ entity, hass, language, onClose, roomName, t }: EntityM
     if (unavailable) return t("unavailable");
     if (domain === "light") return state.state === "on" ? (dimmable ? `${brightness}%` : t("stateOn")) : t("stateOff");
     if (domain === "climate") return `${hvacLabel(state.state, language)}${typeof attrs.current_temperature === "number" ? ` · ${attrs.current_temperature}°` : ""}`;
-    if (domain === "cover") return typeof attrs.current_position === "number" ? `${attrs.current_position}%` : state.state === "open" ? t("open") : t("closed");
+    if (domain === "cover") {
+      if (coverPosition != null) return `${own.cover_invert_state ? 100 - coverPosition : coverPosition}%`;
+      const open = state.state === "open";
+      return (own.cover_invert_state ? !open : open) ? t("open") : t("closed");
+    }
     if (domain === "media_player") return state.state === "playing" ? String(attrs.media_title ?? t("on")) : state.state === "off" ? t("stateOff") : t("nothingPlaying");
     if (domain === "lock") return state.state === "locked" ? t("lock") : t("unlock");
     if (domain === "camera") return t("cameraLive");
@@ -176,8 +185,8 @@ function EntityDetails({ entity, hass, language, onClose, roomName, t }: EntityM
         </>}
 
         {domain === "cover" && <>
-          {typeof attrs.current_position === "number" && <Slider label={t("setPosition")} onCommit={(value) => void call("cover", "set_cover_position", { position: value })} value={num(attrs.current_position, 0)} />}
-          <div className="hd-segment"><button onClick={() => void call("cover", coverMove(customize?.lookup(entity.entity_id) ?? entity, "up"))} type="button">{t("openAction")}</button><button onClick={() => void call("cover", "stop_cover")} type="button">{t("stop")}</button><button onClick={() => void call("cover", coverMove(customize?.lookup(entity.entity_id) ?? entity, "down"))} type="button">{t("closeAction")}</button></div>
+          {coverBar && <Slider label={t("setPosition")} onCommit={(value) => void call("cover", "set_cover_position", { position: own.cover_invert_position ? 100 - value : value })} value={own.cover_invert_position ? 100 - num(attrs.current_position, 0) : num(attrs.current_position, 0)} />}
+          {coverButtons && <div className="hd-segment"><button onClick={() => void call("cover", coverMove(customize?.lookup(entity.entity_id) ?? entity, "up"))} type="button">{t("openAction")}</button><button onClick={() => void call("cover", "stop_cover")} type="button">{t("stop")}</button><button onClick={() => void call("cover", coverMove(customize?.lookup(entity.entity_id) ?? entity, "down"))} type="button">{t("closeAction")}</button></div>}
         </>}
 
         {domain === "media_player" && <>

@@ -53,8 +53,8 @@ export const theme = String.raw`
 .app-shell .weather-chip b { font: 500 calc(var(--u)*2.8)/1 var(--f-display); }
 .app-shell .weather-chip small { color: var(--ink-2); font: 500 calc(var(--u)*1.8)/1 var(--f-body); white-space: nowrap; }
 .app-shell .presence-stack { display: flex; padding-left: calc(var(--u)*1.2); }
-.app-shell .presence-avatar { position: relative; width: calc(var(--u)*5.4); height: calc(var(--u)*5.4); margin-left: calc(var(--u)*-1.2); border-radius: 50%; display: grid; place-items: center; overflow: visible; font: 600 calc(var(--u)*2.2)/1 var(--f-display); color: #2a1408; background: var(--avatar, #f0a86a); border: 2px solid rgba(0,0,0,.25); }
-.app-shell .presence-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.app-shell .presence-avatar { position: relative; width: calc(var(--u)*5.4); height: calc(var(--u)*5.4); margin-left: calc(var(--u)*-1.2); border-radius: var(--hd-round, 50%); display: grid; place-items: center; overflow: visible; font: 600 calc(var(--u)*2.2)/1 var(--f-display); color: #2a1408; background: var(--avatar, #f0a86a); border: 2px solid rgba(0,0,0,.25); }
+.app-shell .presence-avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
 .app-shell .presence-avatar::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 28%; height: 28%; border-radius: 50%; background: #8c8c8c; border: 2px solid #1b1514; }
 .app-shell .presence-avatar--home::after { background: var(--ok); }
 .app-shell .round-action { width: calc(var(--u)*5.4); height: calc(var(--u)*5.4); border-radius: var(--hd-pill,99px); display: grid; place-items: center; padding: 0; color: var(--ink); cursor: pointer; }

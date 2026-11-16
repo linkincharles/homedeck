@@ -22,11 +22,13 @@ export const LIST_PREFIX = "list:";
 export const isListKey = (key: string) => key.startsWith(LIST_PREFIX);
 export const FOLDER_PREFIX = "folder:";
 export const isFolderKey = (key: string) => key.startsWith(FOLDER_PREFIX);
+export const VEHICLE_PREFIX = "vehicle:";
+export const isVehicleKey = (key: string) => key.startsWith(VEHICLE_PREFIX);
 
 /** Puts each separator back before the item that followed it in the saved order (or at the end). */
 export function withSections(keys: string[], layout: ScreenLayout): string[] {
   // Separators and list cards: items of the screen itself, placed by the saved order.
-  const sections = [...Object.keys(layout.sections ?? {}), ...Object.keys(layout.lists ?? {}), ...Object.keys(layout.folders ?? {})];
+  const sections = [...Object.keys(layout.sections ?? {}), ...Object.keys(layout.lists ?? {}), ...Object.keys(layout.folders ?? {}), ...Object.keys(layout.vehicles ?? {})];
   if (sections.length === 0) return keys;
   const result = [...keys];
   const shown = new Set(keys);

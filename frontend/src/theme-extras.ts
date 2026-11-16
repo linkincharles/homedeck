@@ -1038,9 +1038,11 @@ export const themeExtras = String.raw`
 .app-shell .fp-room__head { position: relative; z-index: 1; display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
 .app-shell .fp-room__head > span:first-child { min-width: 0; color: var(--ink); font: 600 clamp(11px, calc(var(--fp-unit)*.5), 16px)/1.2 var(--f-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-shell .fp-room__temp { flex: none; color: var(--ink-2); font: 500 clamp(10px, calc(var(--fp-unit)*.45), 15px)/1 var(--f-body); font-variant-numeric: tabular-nums; }
-.app-shell .fp-spot { position: absolute; z-index: 2; translate: -50% -50%; width: clamp(28px, calc(var(--fp-unit)*1.35), 46px); height: clamp(28px, calc(var(--fp-unit)*1.35), 46px); padding: 0; display: grid; place-items: center; border: 0; border-radius: var(--hd-round, 50%); background: rgba(255,255,255,.12); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); cursor: pointer; transition: background .3s, box-shadow .3s, transform .15s; -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; }
+.app-shell .fp-spot { position: absolute; z-index: 2; translate: -50% -50%; width: clamp(32px, calc(var(--fp-unit)*1.65), 56px); height: clamp(32px, calc(var(--fp-unit)*1.65), 56px); padding: 0; display: grid; place-items: center; border: 0; border-radius: var(--hd-round, 50%); background: rgba(255,255,255,.12); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); cursor: pointer; transition: background .3s, box-shadow .3s, transform .15s; -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; }
 .app-shell .fp-spot:active { transform: scale(.9); }
-.app-shell .fp-spot svg { width: 55%; height: 55%; }
+.app-shell .fp-spot svg { width: 58%; height: 58%; }
+/* In Edit mode the floor buttons sit above the plan, so the rooms along the top stay reachable. */
+.app-shell .fp--editing .fp-overlay { position: relative; }
 .app-shell .fp-spot--on { background: var(--on); color: var(--on-ink, #2a2110); box-shadow: 0 0 calc(var(--fp-unit)*.9) color-mix(in srgb, var(--on) 60%, transparent); }
 .app-shell .fp-spot--alert { background: #ff6b5e; color: #fff; box-shadow: 0 0 calc(var(--fp-unit)*.9) rgba(255,107,94,.6); }
 .app-shell .fp-spot--motion { background: rgba(120,200,255,.35); animation: fp-pulse 1.6s ease-in-out infinite; }
@@ -1088,10 +1090,13 @@ export const themeExtras = String.raw`
 .app-shell .fp--3d.fp--moving .fp-stage { cursor: grabbing; }
 .app-shell .fp-canvas { transition: transform .6s cubic-bezier(.2,.8,.2,1); }
 .app-shell .fp--3d .fp-room { transform-style: preserve-3d; }
-.app-shell .fp--3d .fp-room::after { content: ""; position: absolute; inset: 2px; border-radius: calc(var(--fp-unit)*.3*var(--hd-r,1)); border: 1.5px solid var(--fp-wall); transform: translateZ(calc(var(--fp-unit)*1.1)); pointer-events: none; }
-.app-shell .fp--3d .fp-room--lit::after { border-color: rgba(255,214,150,.75); box-shadow: 0 0 calc(var(--fp-unit)*1.4) rgba(255,190,90,.35); }
+/* 3D: the rooms lie on the floor, without a raised outline above them (the devices stand up instead). */
+.app-shell .fp--3d .fp-room:not(.fp-room--motion)::after { content: none; }
 .app-shell .fp--3d .fp-room::before { box-shadow: 0 0 0 1px var(--fp-wall), 0 calc(var(--fp-unit)*.3) calc(var(--fp-unit)*1.2) rgba(0,0,0,.35); }
 .app-shell .fp--3d .fp-spot { transform: translateZ(calc(var(--fp-unit)*.9)) rotateZ(calc(var(--fp-rz) * -1)) rotateX(calc(var(--fp-rx) * -1)); }
+/* The devices (and names) sit in their own layer over the room: it keeps the 3D so they stand up. */
+.app-shell .fp--3d .fp-room__spots { transform-style: preserve-3d; }
+.app-shell .fp--3d .fp-room__name { transform: translateZ(calc(var(--fp-unit)*1.4)) rotateZ(calc(var(--fp-rz) * -1)) rotateX(calc(var(--fp-rx) * -1)); }
 .app-shell .fp--3d .fp-room__head { transform: translateZ(calc(var(--fp-unit)*1.15)); }
 .app-shell .fp--3d.fp--image .fp-room::after { border-color: transparent; }
 .app-shell .fp--3d .fp-image { box-shadow: 0 calc(var(--fp-unit)*1.4) calc(var(--fp-unit)*3) rgba(0,0,0,.45); }
@@ -1106,9 +1111,9 @@ export const themeExtras = String.raw`
 .app-shell .fp-card p { margin: 0; }
 
 /* Sensors on the plan: a pill with their reading. Plan screen: no title, the plan takes the room left. */
-.app-shell .fp-spot--reading { width: auto; min-width: clamp(28px, calc(var(--fp-unit)*1.35), 46px); padding: 0 clamp(6px, calc(var(--fp-unit)*.2), 10px); gap: 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--hd-pill, 99px); }
-.app-shell .fp-spot--reading svg { width: 14px; height: 14px; flex: none; opacity: .8; }
-.app-shell .fp-spot--reading b { font: 650 clamp(10px, calc(var(--fp-unit)*.38), 14px)/1 var(--f-body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.app-shell .fp-spot--reading { width: auto; min-width: clamp(32px, calc(var(--fp-unit)*1.65), 56px); padding: 0 clamp(6px, calc(var(--fp-unit)*.2), 10px); gap: 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--hd-pill, 99px); }
+.app-shell .fp-spot--reading svg { width: 16px; height: 16px; flex: none; opacity: .8; }
+.app-shell .fp-spot--reading b { font: 650 clamp(11px, calc(var(--fp-unit)*.46), 16px)/1 var(--f-body); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .app-shell .fp-screen .fp { gap: calc(var(--u)*.8); }
 .app-shell .fp-screen .context-header { margin-bottom: 0; }
 
@@ -1372,4 +1377,103 @@ export const themeExtras = String.raw`
   .app-shell .hd-player__wrap { gap: calc(var(--u)*2); }
   .app-shell .hd-player__scroll { padding-top: calc(var(--u)*8 + env(safe-area-inset-top, 0px)); padding-bottom: calc(var(--u)*3 + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---------- Vehicle card (Pro) ---------- */
+.app-shell .hd-vehicle { --vc: #4f8cff; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: calc(var(--u)*1.2); text-align: left; cursor: pointer; }
+.app-shell .hd-vehicle__art { position: relative; flex: none; width: calc(var(--u)*7.2); height: calc(var(--u)*7.2); min-width: 50px; min-height: 50px; display: grid; place-items: center; }
+.app-shell .hd-vehicle__ring { position: absolute; inset: 0; width: 100%; height: 100%; color: currentColor; }
+.app-shell .hd-vehicle__ring circle { transition: stroke-dasharray .8s ease; }
+.app-shell .hd-vehicle__icon { width: 64%; height: 64%; display: grid; place-items: center; border-radius: var(--hd-round, 50%); background: var(--vc); color: #fff; box-shadow: 0 4px 14px color-mix(in srgb, var(--vc) 40%, transparent); }
+.app-shell .hd-vehicle__bolt { position: absolute; right: -2px; bottom: -2px; width: 34%; height: 34%; display: grid; place-items: center; border-radius: 50%; background: #ffd60a; color: #2a2110; box-shadow: 0 0 0 2px rgba(0,0,0,.25); }
+.app-shell.hd-motion .hd-vehicle--charging .hd-vehicle__ring { animation: hd-vehicle-pulse 2.4s ease-in-out infinite; }
+@keyframes hd-vehicle-pulse { 50% { filter: drop-shadow(0 0 6px var(--vc)); } }
+.app-shell .hd-vehicle__copy { display: flex; flex-direction: column; gap: calc(var(--u)*.35); min-width: 0; width: 100%; }
+.app-shell .hd-vehicle__copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 650 calc(var(--u)*1.75)/1.2 var(--f-body); }
+.app-shell .hd-vehicle__level { font: 300 calc(var(--u)*2.8)/1 var(--f-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.app-shell .hd-vehicle__status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 500 calc(var(--u)*1.4)/1.3 var(--f-body); }
+.app-shell .device-tile--active.hd-vehicle .hd-vehicle__status, .app-shell .hd-vehicle.device-tile--active .hd-vehicle__chips { color: var(--paper-ink-2); }
+.app-shell .hd-vehicle__chips { display: flex; flex-wrap: wrap; gap: calc(var(--u)*.6); margin-top: calc(var(--u)*.6); color: var(--ink-2); }
+.app-shell .hd-vehicle__chips span { display: inline-flex; align-items: center; gap: 5px; height: calc(var(--u)*3); min-height: 24px; padding: 0 calc(var(--u)*1); border-radius: var(--hd-pill, 99px); background: rgba(255,255,255,.1); font: 600 calc(var(--u)*1.3)/1 var(--f-body); white-space: nowrap; }
+.app-shell .hd-vehicle--wide { flex-direction: row; align-items: center; gap: calc(var(--u)*2.4); }
+.app-shell .hd-vehicle--wide .hd-vehicle__art { width: calc(var(--u)*12); height: calc(var(--u)*12); max-width: 42%; aspect-ratio: 1; }
+.app-shell .hd-vehicle--wide .hd-vehicle__level { font-size: calc(var(--u)*4); }
+.app-shell .hd-vehicle--wide .hd-vehicle__copy strong { font-size: calc(var(--u)*2.1); }
+.app-shell .hd-vehicle--tall { flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.app-shell .hd-vehicle--tall .hd-vehicle__art { width: min(calc(var(--u)*18), 60%); height: auto; aspect-ratio: 1; max-width: none; }
+.app-shell .hd-vehicle--tall .hd-vehicle__copy { align-items: center; }
+.app-shell .hd-vehicle--tall .hd-vehicle__chips { justify-content: center; }
+.app-shell .hd-vehicle--tall .hd-vehicle__level { font-size: calc(var(--u)*5); }
+.app-shell .hd-item--small .hd-vehicle { flex-direction: row; align-items: center; }
+.app-shell .hd-item--small .hd-vehicle .hd-vehicle__art { width: calc(var(--u)*4.6); height: calc(var(--u)*4.6); min-width: 36px; min-height: 36px; }
+.app-shell .hd-item--small .hd-vehicle .hd-vehicle__level { font-size: calc(var(--u)*1.8); }
+.app-shell .hd-item--small .hd-vehicle .hd-vehicle__status { display: none; }
+/* The details and the editor. */
+.app-shell .hd-vehicle-sheet__hero { display: flex; align-items: center; gap: calc(var(--u)*2.4); margin-bottom: calc(var(--u)*2); }
+.app-shell .hd-vehicle-sheet__hero .hd-vehicle__art { width: 132px; height: 132px; }
+.app-shell .hd-vehicle-sheet__hero b { display: block; font: 300 calc(var(--u)*6)/1 var(--f-display); letter-spacing: -.03em; }
+.app-shell .hd-vehicle-sheet__hero span { color: var(--ink-2); font: 500 calc(var(--u)*1.7)/1.4 var(--f-body); }
+.app-shell .hd-vehicle-sheet__controls { display: flex; flex-wrap: wrap; gap: calc(var(--u)*1); margin-bottom: calc(var(--u)*1.6); }
+.app-shell .hd-pill--on { background: var(--on, #f5c542); color: var(--on-ink, #2a2110); }
+.app-shell .hd-vehicle-sheet__rows { display: flex; flex-direction: column; }
+.app-shell .hd-vehicle-sheet__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: calc(var(--u)*1.2); padding: calc(var(--u)*1.3) calc(var(--u)*.4); border: 0; border-top: 1px solid var(--line); background: none; color: inherit; text-align: left; cursor: pointer; font: 500 calc(var(--u)*1.6)/1.3 var(--f-body); }
+.app-shell .hd-vehicle-sheet__row b { font-weight: 650; text-align: right; }
+.app-shell .hd-vehicle-edit__naming { display: flex; align-items: center; gap: calc(var(--u)*1.2); margin-bottom: calc(var(--u)*1.6); }
+.app-shell .hd-vehicle-edit__naming input { flex: 1; min-width: 0; height: calc(var(--u)*5); min-height: 40px; padding: 0 calc(var(--u)*1.4); border: 1px solid var(--line); border-radius: calc(var(--u)*1.4*var(--hd-r,1)); background: rgba(255,255,255,.06); color: inherit; font: 600 calc(var(--u)*1.8)/1 var(--f-body); }
+.app-shell .hd-vehicle-edit__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: center; gap: calc(var(--u)*1.4); padding: calc(var(--u)*1) 0; border-top: 1px solid var(--line); font: 600 calc(var(--u)*1.55)/1.3 var(--f-body); }
+.app-shell .hd-vehicle-edit__row--stack { grid-template-columns: minmax(0, 1fr); }
+.app-shell .hd-vehicle-edit__row--stack > :last-child { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.app-shell .hd-vehicle-edit__row > span { display: flex; flex-direction: column; gap: 3px; }
+.app-shell .hd-vehicle-edit__row > span:has(svg) { flex-direction: row; align-items: center; gap: calc(var(--u)*.8); }
+.app-shell .hd-vehicle-edit__row small { color: var(--ink-2); font-weight: 500; font-size: calc(var(--u)*1.3); }
+.app-shell .hd-vehicle-edit__now { grid-column: 2; margin-top: -4px; }
+.app-shell .hd-vehicle-edit__colors { display: flex; flex-wrap: wrap; gap: calc(var(--u)*.8); }
+.app-shell .hd-vehicle-edit__colors button { width: calc(var(--u)*3.6); height: calc(var(--u)*3.6); min-width: 28px; min-height: 28px; border: 0; border-radius: var(--hd-round, 50%); cursor: pointer; box-shadow: inset 0 0 0 2px rgba(255,255,255,.15); }
+.app-shell .hd-vehicle-edit__colors button[aria-checked="true"] { box-shadow: 0 0 0 3px #fff; }
+.app-shell .hd-vehicle-edit__title { margin: calc(var(--u)*2.4) 0 0; font: 650 calc(var(--u)*1.9)/1.2 var(--f-body); }
+.app-shell .hd-vehicle-edit__hint { margin: calc(var(--u)*.6) 0 calc(var(--u)*1); color: var(--ink-2); font: 500 calc(var(--u)*1.4)/1.45 var(--f-body); }
+@media (max-width: 720px) { .app-shell .hd-vehicle-edit__row { grid-template-columns: minmax(0, 1fr); } .app-shell .hd-vehicle-edit__now { grid-column: 1; } }
+
+/* ---------- Floor plan: rooms of several rectangles, names, per-room spots ---------- */
+.app-shell .fp-room__spots { position: absolute; z-index: 2; pointer-events: none; }
+.app-shell .fp-room__spots > * { pointer-events: auto; }
+/* A room of several parts paints nothing itself: its floor and walls are one shape drawn over it. */
+.app-shell .fp-room.fp-room--joined::before { inset: 0; border: 0; border-radius: 0; background: none !important; box-shadow: none !important; }
+.app-shell .fp-room--joined.fp-room--motion::after { content: none; }
+/* In Edit mode a room of several parts shows one dashed outline around its whole shape (no lines across it). */
+.app-shell .fp--editing .fp-walls .fp-walls__line, .app-shell .fp--editing.fp--image .fp-walls .fp-walls__line { stroke: rgba(255,255,255,.7); stroke-dasharray: 6 4; }
+.app-shell .fp--editing .fp-walls .fp-walls__floor { fill: rgba(255,255,255,.06); }
+.app-shell .fp-walls { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.app-shell .fp-walls__line { fill: none; stroke: rgba(255,255,255,.26); stroke-width: 1.5px; stroke-linecap: square; vector-effect: non-scaling-stroke; transition: stroke .4s ease; }
+.app-shell .fp-walls__floor { fill: rgba(255,255,255,.035); stroke: none; transition: fill .6s ease; }
+.app-shell .fp-walls--lit .fp-walls__line { stroke: rgba(255,214,150, calc(.35 + .4 * var(--fp-glow))); }
+.app-shell .fp-walls--lit .fp-walls__floor { fill: rgba(255,196,110, calc(.08 + .22 * var(--fp-glow))); }
+.app-shell .fp-walls--open .fp-walls__line { stroke: rgba(255,107,94,.85); }
+.app-shell .fp--image .fp-walls__line { stroke: transparent; }
+.app-shell .fp--image .fp-walls__floor { fill: transparent; }
+.app-shell .fp--image .fp-walls--lit .fp-walls__floor { fill: rgba(255,196,110, calc(.1 + .2 * var(--fp-glow))); }
+.app-shell.view-kids .fp-walls__line { stroke: var(--kid-dark, #231b3d); stroke-width: 3px; }
+.app-shell.view-kids .fp-walls__floor { fill: rgba(255,255,255,.55); }
+.app-shell .fp-card .fp-walls__line { stroke-width: 1px; }
+.app-shell .fp-card .fp-room__spots { display: block; }
+.app-shell .fp-room__name { position: absolute; z-index: 3; translate: -50% -50%; display: inline-flex; align-items: baseline; gap: 6px; max-width: none; overflow: visible; color: var(--ink); font: 650 clamp(11px, calc(var(--fp-unit)*.56), 17px)/1.15 var(--f-body); white-space: nowrap; text-shadow: 0 1px 6px rgba(0,0,0,.45); pointer-events: none !important; }
+.app-shell .fp-room__name small { color: var(--ink-2); font-weight: 550; font-size: .86em; font-variant-numeric: tabular-nums; }
+.app-shell .fp--editing .fp-room__name { pointer-events: auto !important; cursor: grab; padding: 2px 8px; border-radius: var(--hd-pill, 99px); outline: 1.5px dashed rgba(255,255,255,.5); background: rgba(0,0,0,.25); touch-action: none; }
+.app-shell.view-kids .fp-room__name { color: var(--kid-dark, #231b3d); text-shadow: none; }
+.app-shell .fp--editing .fp-room__head > span:first-child { flex: 1; }
+.app-shell .fp-room__add, .app-shell .fp-room__remove { flex: none; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,.2); color: var(--ink); cursor: pointer; font: 700 15px/1 var(--f-body); }
+.app-shell .fp-room__add:hover { background: rgba(255,255,255,.32); }
+.app-shell .fp-room__remove { position: absolute; z-index: 3; top: 4px; right: 4px; background: #ff6b5e; color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+
+/* ---------- Text size on this device: a slider and a preview (Settings → This device) ---------- */
+/* The screensaver keeps its own size (Settings → Screensaver), whatever the text size here. */
+.app-shell .hd-saver { --hd-font: 1; }
+.app-shell .st-textsize__body { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: calc(var(--u)*2.4); padding: 0 0 calc(var(--u)*1.6); }
+.app-shell .st-textsize__control { display: flex; align-items: center; gap: calc(var(--u)*1.2); flex-wrap: wrap; }
+.app-shell .st-textsize__control input { flex: 1; min-width: 140px; accent-color: var(--on, #f5c542); }
+.app-shell .st-textsize__a { color: var(--ink-2); font-weight: 650; line-height: 1; }
+.app-shell .st-textsize__a--small { font-size: 13px; }
+.app-shell .st-textsize__a--large { font-size: 22px; }
+.app-shell .st-textsize__preview { display: grid; grid-template-columns: repeat(2, calc(var(--u)*17)); gap: calc(var(--u)*1.2); pointer-events: none; }
+.app-shell .st-textsize__preview .device-tile { height: calc(var(--u)*15); min-height: 0; }
+@media (max-width: 720px) { .app-shell .st-textsize__body { grid-template-columns: minmax(0, 1fr); } .app-shell .st-textsize__preview { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 `;

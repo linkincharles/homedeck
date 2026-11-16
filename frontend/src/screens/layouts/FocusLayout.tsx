@@ -1,3 +1,4 @@
+import { homeStatusText } from "../../homeStatus";
 import { hourOptions } from "../../clock";
 import { isRoomLight } from "../../personalize";
 import { useEffect, useRef, useState } from "react";
@@ -116,7 +117,7 @@ function FocusRooms(props: FocusLayoutProps) {
         <time className="fc-clock">{new Intl.DateTimeFormat(language, { ...hourOptions(), hour: "2-digit", minute: "2-digit" }).format(now)}</time>
         <div className="fc-summary">
           {weather && <span>{weather.temperature != null ? `${Math.round(weather.temperature)}°` : ""}{weather.temperature != null && weather.condition ? " · " : ""}{weather.condition ? weatherConditionLabel(weather.condition, language) : ""}</span>}
-          <span>{litTotal === 1 ? t("oneLightOn") : t("lightsOn").replace("{count}", String(litTotal))}</span>
+          <span>{homeStatusText(config, hass, litTotal, t)}</span>
           <AgendaButtons config={config} hass={hass} language={language} t={t} />
         </div>
         {editing && <p className="edit-hint">{t("editHintSimple")}</p>}
