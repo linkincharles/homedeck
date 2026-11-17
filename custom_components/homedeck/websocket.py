@@ -30,6 +30,7 @@ from .license import (
     async_license_status,
     async_portal,
     async_refresh,
+    async_signed_key,
 )
 from .notices import SIGNAL_DISMISSED, async_dismiss, async_dismissed
 from .frontend import PLANS_DIR, PLANS_URL
@@ -122,6 +123,17 @@ async def websocket_license(
     if msg["refresh"]:
         await async_refresh(hass, force=True)
     connection.send_result(msg["id"], await async_license_status(hass))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/license/key"})
+@websocket_api.async_response
+async def websocket_license_key(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return the signed license key, which HomeDeck Desktop checks itself before it opens."""
+    connection.send_result(msg["id"], await async_signed_key(hass))
 
 
 @websocket_api.websocket_command(
@@ -330,6 +342,7 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_get_config)
     websocket_api.async_register_command(hass, websocket_save_config)
     websocket_api.async_register_command(hass, websocket_license)
+    websocket_api.async_register_command(hass, websocket_license_key)
     websocket_api.async_register_command(hass, websocket_license_activate)
     websocket_api.async_register_command(hass, websocket_license_deactivate)
     websocket_api.async_register_command(hass, websocket_license_checkout)

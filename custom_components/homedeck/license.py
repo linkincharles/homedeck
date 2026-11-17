@@ -189,6 +189,12 @@ async def async_deactivate(hass: HomeAssistant) -> dict[str, Any]:
     return await async_license_status(hass)
 
 
+async def async_signed_key(hass: HomeAssistant) -> dict[str, Any]:
+    """The stored key as signed, for HomeDeck Desktop to verify on its own; None on Free."""
+    stored = await _store(hass).async_load() or {}
+    return {"key": stored.get("key"), "installation_id": await instance_id.async_get(hass)}
+
+
 async def async_is_pro(hass: HomeAssistant) -> bool:
     return (await async_license_status(hass))["plan"] == "pro"
 

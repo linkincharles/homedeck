@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.19.0
+
+- HomeDeck Desktop (Pro): an app for Mac and Windows that opens HomeDeck from the menu bar or the tray, with a click or ⌥⌘H / Ctrl+Alt+H. A compact, wide (three times wider) or full-screen window, with the system's own corners and adjustable transparency, Settings in the system's look and automatic updates. Download it at homedeck.pro/desktop; it needs this version of the integration.
+- A download button for the app in Settings → Plan, and HomeDeck Desktop in the list of Pro benefits.
+- A support section in Settings → Plan: a star on GitHub, the community on the forum and HomeDeck's Instagram.
+
 ## 0.18.0
 
 - Photo layout (Pro, in Settings → Appearance → Layout): a photo of each room fills the screen, with its cards on a panel beside it in your background color. In Edit mode the camera button sends the room's (or the home's) photo, with framing, darkening when the lights are off and a warm glow where the lamp is. The Floor plan fills the whole panel in this layout.

@@ -169,8 +169,9 @@ on macOS). Your rooms, backgrounds and preferences are kept.
   the energy card, animations, sensor charts on cards, the doorbell pop-up, special dates, the full media player, the small sensor size,
   camera pages and big camera sizes, devices inside cards, visibility rules, who can see, the waste
   collection card, the screensaver with
-  today's agenda, every background and color, the style (corners, frame and glass) and feedback
-  straight to support. US$ 14.99 once or
+  today's agenda, every background and color, the style (corners, frame and glass), feedback
+  straight to support and [HomeDeck Desktop](https://homedeck.pro/desktop/), HomeDeck in the Mac
+  menu bar and the Windows tray. US$ 14.99 once or
   US$ 7.99 per year, per home (R$ 59.90 or R$ 29.90 per year in Brazil).
 
 Buy Pro from **Settings → Plan** in the dashboard. The license is checked locally and

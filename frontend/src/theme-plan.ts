@@ -107,4 +107,9 @@ export const themePlan = String.raw`
   .app-shell .hd-pro__plans, .app-shell .st-meters, .app-shell .plan-gate__columns { grid-template-columns: minmax(0, 1fr); }
   .app-shell .plan-gate__pro { flex-wrap: wrap; }
 }
+.app-shell .st-love__head { display: flex; align-items: center; gap: calc(var(--u)*1.6); }
+.app-shell .st-love__art { width: calc(var(--u)*7); height: calc(var(--u)*7); flex: none; filter: drop-shadow(0 6px 16px rgba(200,107,255,.3)); }
+.app-shell .st-love__head p { margin: calc(var(--u)*.4) 0 0; color: var(--ink-2); font: 500 calc(var(--u)*1.7)/1.4 var(--f-body); }
+.app-shell .st-love__links { display: flex; flex-wrap: wrap; gap: calc(var(--u)*1); }
+.app-shell .st-love__links .hd-pill { text-decoration: none; }
 `;

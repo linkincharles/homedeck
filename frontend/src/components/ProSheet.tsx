@@ -22,6 +22,7 @@ const BENEFITS: Array<[IconName, TranslationKey]> = [
   ["note", "proBenefitMedia"],
   ["sun", "proBenefitLook"],
   ["expand", "proBenefitLayout"],
+  ["monitor", "proBenefitDesktop"],
 ];
 export const LICENSE_ERRORS: Record<string, TranslationKey> = {
   invalid: "licenseInvalid",

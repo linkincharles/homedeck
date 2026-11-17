@@ -10,6 +10,8 @@ permissions:
 jobs:
   package:
     name: Attach homedeck.zip
+    # HomeDeck Desktop releases (desktop-v*) are built by desktop.yml.
+    if: ${{ !startsWith(github.event.release.tag_name, 'desktop-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

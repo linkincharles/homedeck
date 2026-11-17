@@ -14,6 +14,7 @@ import { themePhoto } from "./theme-photo";
 import type { HomeAssistant, HomeDeckPanelInfo } from "./types/home-assistant";
 import { hideSidebar, hideSidebarPreferred, restoreSidebar } from "./sidebar";
 import { hidePageScrollbars } from "./scrollbars";
+import { inDesktopApp } from "./desktop";
 
 class HomeDeckPanel extends HTMLElement {
   private _hass?: HomeAssistant;
@@ -65,7 +66,8 @@ class HomeDeckPanel extends HTMLElement {
   /** Hides Home Assistant's sidebar while HomeDeck is open on a device that asked for it. */
   private readonly applySidebar = () => {
     if (!this.isConnected) return;
-    if (hideSidebarPreferred()) hideSidebar(this, this._hass?.dockedSidebar);
+    // The desktop app's window is HomeDeck alone, so Home Assistant's sidebar always stays out of it.
+    if (hideSidebarPreferred() || inDesktopApp()) hideSidebar(this, this._hass?.dockedSidebar);
     else restoreSidebar(this);
   };
 

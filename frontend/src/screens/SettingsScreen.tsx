@@ -1,4 +1,5 @@
 import { isRecentMediaSensor } from "../components/RecentMedia";
+import { inDesktopApp } from "../desktop";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
@@ -29,7 +30,7 @@ import { EntityPicker } from "../components/EntityPicker";
 import { FeedbackSheet } from "../components/FeedbackSheet";
 import { LayoutPicker, Thumb as LayoutThumb, VIEW_MODES } from "../components/LayoutPicker";
 import { OPEN_METEO } from "../weather";
-import { DEFAULT_ACCENT, DEFAULT_CARDS, DEFAULT_HIGHLIGHT, FREE_BACKGROUNDS, FREE_VIEW_MODES, freeDevices, freeRoomIds, freeUsage, isControllable, panelRoomIds, SUPPORT_EMAIL, usePlan } from "../plan";
+import { DEFAULT_ACCENT, DEFAULT_CARDS, DEFAULT_HIGHLIGHT, FREE_BACKGROUNDS, FREE_VIEW_MODES, freeDevices, freeRoomIds, freeUsage, isControllable, panelRoomIds, DESKTOP_URL, SUPPORT_EMAIL, usePlan } from "../plan";
 import { availableSections } from "../security";
 
 type Section = "layout" | "appearance" | "home" | "weather" | "agenda" | "cameras" | "screensaver" | "rooms" | "navigation" | "device" | "plan" | "system";
@@ -441,6 +442,28 @@ export function SettingsScreen({ config, hass, language, onClose, onDraft, onLic
           <Row description={t("feedbackDescription")} label={t("feedback")}>{plan.pro ? <button className="hd-pill hd-pill--solid" onClick={() => setFeedback(true)} type="button"><HDIcon name="check" size={16} />{t("feedbackOpen")}</button> : <button className="hd-pill" onClick={() => plan.upsell("feature")} type="button"><HDIcon name="lock" size={14} />Pro</button>}</Row>
           <Row description={t("supportDescription")} label={t("support")}><a className="hd-pill" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></Row>
           <Row description={t("installationIdDescription")} label={t("installationId")}><code className="st-code">{plan.license?.installation_id ?? "—"}</code></Row>
+        </section>}
+
+        {section === "plan" && !inDesktopApp() && <section className="st-panel st-love st-desktop">
+          <div className="st-love__head">
+            <svg aria-hidden="true" className="st-love__art" viewBox="0 0 64 64"><defs><linearGradient id="hdDesktop" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#5b8def" /><stop offset="1" stopColor="#8a6fd8" /></linearGradient></defs><rect fill="url(#hdDesktop)" height="64" rx="18" width="64" /><rect fill="#fff" height="24" rx="3.5" width="36" x="14" y="17" /><rect fill="#5b8def" height="9" opacity=".55" rx="1.5" width="8" x="18" y="21" /><rect fill="#8a6fd8" height="5" opacity=".45" rx="1.5" width="8" x="28" y="21" /><rect fill="#8a6fd8" height="5" opacity=".45" rx="1.5" width="8" x="28" y="28" /><path d="M10 45h44l-3 4H13z" fill="#fff" /></svg>
+            <div><h2>{t("desktopTitle")}</h2><p>{t("desktopText")}{plan.pro ? "" : ` ${t("desktopProNote")}`}</p></div>
+          </div>
+          <div className="st-love__links">
+            <a className="hd-pill hd-pill--solid" href={DESKTOP_URL} rel="noopener" target="_blank"><HDIcon name="monitor" size={16} />{t("desktopDownload")}</a>
+          </div>
+        </section>}
+
+        {section === "plan" && <section className="st-panel st-love">
+          <div className="st-love__head">
+            <svg aria-hidden="true" className="st-love__art" viewBox="0 0 64 64"><defs><linearGradient id="hdLove" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#ff8fb1" /><stop offset="1" stopColor="#c86bff" /></linearGradient></defs><rect fill="url(#hdLove)" height="64" rx="18" width="64" /><path d="M32 47s-14-8.6-14-18.2C18 24 21.6 20.5 25.9 20.5c2.6 0 4.8 1.3 6.1 3.4 1.3-2.1 3.5-3.4 6.1-3.4 4.3 0 7.9 3.5 7.9 8.3C46 38.4 32 47 32 47z" fill="#fff" /><circle cx="49" cy="15" fill="#fff" opacity=".85" r="3" /><circle cx="14" cy="49" fill="#fff" opacity=".6" r="2" /></svg>
+            <div><h2>{t("loveTitle")}</h2><p>{t("loveText")}</p></div>
+          </div>
+          <div className="st-love__links">
+            <a className="hd-pill" href="https://github.com/rodrigo-wa/homedeck" rel="noopener" target="_blank"><HDIcon name="star" size={16} />{t("loveGithub")}</a>
+            <a className="hd-pill" href="https://community.home-assistant.io/t/1032025" rel="noopener" target="_blank"><HDIcon name="people" size={16} />{t("loveForum")}</a>
+            <a className="hd-pill hd-pill--solid" href="https://www.instagram.com/homedeck.pro" rel="noopener" target="_blank"><HDIcon name="camera" size={16} />{t("loveInstagram")}</a>
+          </div>
         </section>}
 
         {section === "device" && <section className="st-panel">

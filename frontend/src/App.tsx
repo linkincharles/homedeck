@@ -24,6 +24,7 @@ import { VIEW_MODES } from "./components/LayoutPicker";
 import { KIDS_SCENES } from "./components/KidsScene";
 import { keepAwakeWanted, startKeepAwake } from "./keepAwake";
 import { createTranslator } from "./i18n";
+import { inDesktopApp, reportLicenseToDesktop, wantsProSheet } from "./desktop";
 import { entityKey, getLayout, migrateLayouts, roomScreen, setHidden, withLayout } from "./layout";
 import { effectiveConfig, freeDevices, isControllable, overFreeLimits, panelRoomIds, PlanContext, restrictRooms, type PlanState, type UpsellReason } from "./plan";
 import { availableSections } from "./security";
@@ -131,6 +132,22 @@ export function App({ hass: haHass, version }: { hass: HomeAssistant; version?: 
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, [hass.connection]);
+
+  // HomeDeck Desktop checks the license itself: tell it on load, after every change and twice a day.
+  useEffect(() => {
+    if (!inDesktopApp() || (!license && !legacyBackend)) return;
+    void reportLicenseToDesktop(hass);
+    const timer = window.setInterval(() => { void reportLicenseToDesktop(hass); }, 12 * 3600_000);
+    return () => window.clearInterval(timer);
+  }, [license, legacyBackend, hass.connection]);
+
+  // The desktop app's "Get Pro" opens /homedeck?pro=1 in the browser, straight on the Pro sheet.
+  const proLinkShown = useRef(false);
+  useEffect(() => {
+    if (proLinkShown.current || !license || license.plan === "pro" || !wantsProSheet()) return;
+    proLinkShown.current = true;
+    setUpsellReason("general");
+  }, [license]);
 
   // Changes apply on screen at once and build on the latest config, so quick successive edits
   // never undo each other; saves run in order. A save refused by the free plan reloads the config.
