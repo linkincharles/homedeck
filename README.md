@@ -9,7 +9,7 @@ No YAML, no cards to configure: add a light to an area and it shows up in the ri
 <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=rodrigo-wa&repository=homedeck&category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open in HACS"></a>
 </p>
 
-<p align="center"><a href="https://homedeck.pro">Website</a> · <a href="https://homedeck.pro/video/homedeck-en.mp4">1-minute video</a> · <a href="https://github.com/rodrigo-wa/homedeck/blob/main/CHANGELOG.md">What's new</a></p>
+<p align="center"><a href="https://homedeck.pro">Website</a> · <a href="https://homedeck.pro/video/homedeck-en.mp4">1-minute video</a> · <a href="https://github.com/rodrigo-wa/homedeck/blob/main/CHANGELOG.md">What's new</a> · <a href="https://homedeck.pro/desktop/">HomeDeck Desktop for Mac and Windows</a></p>
 
 HomeDeck reads your `Areas → Devices → Entities`, organizes your home by room and keeps every
 setting and command inside Home Assistant.
@@ -81,6 +81,17 @@ Easter, Valentine's Day, Carnival, Thanksgiving and your own dates too.
 ### Screensaver and phone
 
 <p align="center"><img src="https://raw.githubusercontent.com/rodrigo-wa/homedeck/main/images/screensaver.jpg" alt="Screensaver clock with today's events and reminders" width="62%"> <img src="https://raw.githubusercontent.com/rodrigo-wa/homedeck/main/images/phone.jpg" alt="HomeDeck on a phone" width="17%"> <img src="https://raw.githubusercontent.com/rodrigo-wa/homedeck/main/images/phone-list.jpg" alt="List layout on a phone" width="17%"></p>
+
+### HomeDeck Desktop: on your Mac and PC (new)
+
+An app for **macOS and Windows** that keeps HomeDeck in the menu bar or the system tray. One
+click on the icon, or <kbd>⌥⌘H</kbd> / <kbd>Ctrl+Alt+H</kbd>, opens your home in a compact or
+wide window, with the system's own corners and adjustable transparency, without opening the
+browser. It signs in with your Home Assistant user, needs nothing set up on the server and
+updates itself. Mac with Apple Silicon or Intel, Windows 10 and 11.
+
+**[Download HomeDeck Desktop](https://homedeck.pro/desktop/)** · part of HomeDeck Pro, needs
+integration 0.19 or later.
 
 ## Install with HACS
 
